@@ -1103,7 +1103,7 @@ struct IntervalGroupEditorView: View {
                     customRepeatRow(index: idx, repeatConfig: rep)
                 }
 
-                if let normalizedIntensityPercent, hasNonDefaultIntensity,
+                if let normalizedIntensityPercent,
                    let effectiveRunTimeForSelectedIntensity {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(
@@ -1123,6 +1123,7 @@ struct IntervalGroupEditorView: View {
                         )
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.indigo)
+                        .opacity(hasNonDefaultIntensity ? 1 : 0)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 4)
@@ -1211,14 +1212,14 @@ struct IntervalGroupEditorView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.65)
                             .allowsTightening(true)
-                        if hasNonDefaultIntensity,
-                           let adjustedRunTime = adjustedRunTimeForSelectedIntensity(repeatConfig.runTime) {
+                        if let adjustedRunTime = adjustedRunTimeForSelectedIntensity(repeatConfig.runTime) {
                             Text("-> \(formatRepeatTime(adjustedRunTime))")
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
+                                .opacity(hasNonDefaultIntensity ? 1 : 0)
                         }
                     }
                 }

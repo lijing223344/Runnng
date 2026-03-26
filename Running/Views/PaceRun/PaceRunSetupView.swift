@@ -1285,7 +1285,7 @@ struct PaceRunGroupEditorView: View {
                             }
                         }
 
-                        if let normalizedIntensityPercent, hasNonDefaultIntensity,
+                        if let normalizedIntensityPercent,
                            let adjustedTotalSec = adjustedTimeForSelectedIntensity(totalSec) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(
@@ -1305,6 +1305,7 @@ struct PaceRunGroupEditorView: View {
                                 )
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(.indigo)
+                                .opacity(hasNonDefaultIntensity ? 1 : 0)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -1423,14 +1424,14 @@ struct PaceRunGroupEditorView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
                         .allowsTightening(true)
-                    if hasNonDefaultIntensity,
-                       let adjustedTime = adjustedTimeForSelectedIntensity(segment.time) {
+                    if let adjustedTime = adjustedTimeForSelectedIntensity(segment.time) {
                         Text("-> \(formatSegTime(adjustedTime))")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
+                            .opacity(hasNonDefaultIntensity ? 1 : 0)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

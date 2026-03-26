@@ -191,7 +191,7 @@
 "model_400_target_time_hint" = "Use total seconds. Example: 57.00 or 47.75.";
 "model_400_intensity" = "Training Intensity";
 "model_400_intensity_custom" = "Custom";
-"model_400_intensity_hint" = "The input target time is treated as 100%% intensity. Lower intensity produces longer split times.";
+"model_400_intensity_hint" = "The input target time is treated as 100% intensity. Lower intensity produces longer split times.";
 "model_400_intensity_effective_time" = "Training 400m time at %.1f%% intensity: %@";
 "training_intensity_target_time" = "Target time at 100%% intensity: %@";
 "training_intensity_effective_total_time" = "At %.1f%% intensity, effective total running time: %@";

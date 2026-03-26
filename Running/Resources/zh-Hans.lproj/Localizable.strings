@@ -191,7 +191,7 @@
 "model_400_target_time_hint" = "输入总秒数，例如 57.00 或 47.75。";
 "model_400_intensity" = "训练强度";
 "model_400_intensity_custom" = "自定义";
-"model_400_intensity_hint" = "输入的目标时间按 100%% 强度计算。强度越低，分段时间越长。";
+"model_400_intensity_hint" = "输入的目标时间按 100% 强度计算。强度越低，分段时间越长。";
 "model_400_intensity_effective_time" = "按 %.1f%% 强度训练的400米时间：%@";
 "training_intensity_target_time" = "100%% 强度目标时间：%@";
 "training_intensity_effective_total_time" = "按 %.1f%% 强度，实际总跑动时间：%@";
