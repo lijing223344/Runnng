@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import Combine
 
 /// Manages Watch Connectivity on the iPhone side.
 /// Sends plans to Watch, receives training records back.

@@ -6,7 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D79C1C432F75778B00AF266F /* PaceCoach Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D79C1C422F75778B00AF266F /* PaceCoach Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		D79C1C442F75778B00AF266F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D73445472F614D4600AB4463 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D79C1C412F75778B00AF266F;
+			remoteInfo = "PaceCoach Watch App";
+		};
 		E1A000072F70100100AB4463 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D73445472F614D4600AB4463 /* Project object */;
@@ -23,8 +34,24 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		D79C1C4F2F75778C00AF266F /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				D79C1C432F75778B00AF266F /* PaceCoach Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		D734454F2F614D4600AB4463 /* Running.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Running.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D79C1C3D2F75778B00AF266F /* PaceCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PaceCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D79C1C422F75778B00AF266F /* PaceCoach Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "PaceCoach Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1A000012F70100100AB4463 /* RunningUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunningUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1A100012F70100100AB4463 /* RunningTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunningTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -33,6 +60,11 @@
 		D73445512F614D4600AB4463 /* Running */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Running;
+			sourceTree = "<group>";
+		};
+		D79C1C462F75778B00AF266F /* PaceCoach Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "PaceCoach Watch App";
 			sourceTree = "<group>";
 		};
 		E1A000022F70100100AB4463 /* RunningUITests */ = {
@@ -49,6 +81,13 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		D734454C2F614D4600AB4463 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D79C1C3F2F75778B00AF266F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -78,6 +117,7 @@
 				D73445512F614D4600AB4463 /* Running */,
 				E1A100022F70100100AB4463 /* RunningTests */,
 				E1A000022F70100100AB4463 /* RunningUITests */,
+				D79C1C462F75778B00AF266F /* PaceCoach Watch App */,
 				D73445502F614D4600AB4463 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,6 +128,8 @@
 				D734454F2F614D4600AB4463 /* Running.app */,
 				E1A100012F70100100AB4463 /* RunningTests.xctest */,
 				E1A000012F70100100AB4463 /* RunningUITests.xctest */,
+				D79C1C3D2F75778B00AF266F /* PaceCoach.app */,
+				D79C1C422F75778B00AF266F /* PaceCoach Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,6 +157,47 @@
 			);
 			productName = Running;
 			productReference = D734454F2F614D4600AB4463 /* Running.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D79C1C3C2F75778B00AF266F /* PaceCoach */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D79C1C532F75778C00AF266F /* Build configuration list for PBXNativeTarget "PaceCoach" */;
+			buildPhases = (
+				D79C1C3B2F75778B00AF266F /* Resources */,
+				D79C1C4F2F75778C00AF266F /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D79C1C452F75778B00AF266F /* PBXTargetDependency */,
+			);
+			name = PaceCoach;
+			packageProductDependencies = (
+			);
+			productName = PaceCoach;
+			productReference = D79C1C3D2F75778B00AF266F /* PaceCoach.app */;
+			productType = "com.apple.product-type.application.watchapp2-container";
+		};
+		D79C1C412F75778B00AF266F /* PaceCoach Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D79C1C522F75778C00AF266F /* Build configuration list for PBXNativeTarget "PaceCoach Watch App" */;
+			buildPhases = (
+				D79C1C3E2F75778B00AF266F /* Sources */,
+				D79C1C3F2F75778B00AF266F /* Frameworks */,
+				D79C1C402F75778B00AF266F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D79C1C462F75778B00AF266F /* PaceCoach Watch App */,
+			);
+			name = "PaceCoach Watch App";
+			packageProductDependencies = (
+			);
+			productName = "PaceCoach Watch App";
+			productReference = D79C1C422F75778B00AF266F /* PaceCoach Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 		E1A000062F70100100AB4463 /* RunningUITests */ = {
@@ -170,11 +253,17 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					D734454E2F614D4600AB4463 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					D79C1C3C2F75778B00AF266F = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					D79C1C412F75778B00AF266F = {
+						CreatedOnToolsVersion = 26.4;
 					};
 					E1A000062F70100100AB4463 = {
 						CreatedOnToolsVersion = 26.3;
@@ -204,12 +293,28 @@
 				D734454E2F614D4600AB4463 /* Running */,
 				E1A100062F70100100AB4463 /* RunningTests */,
 				E1A000062F70100100AB4463 /* RunningUITests */,
+				D79C1C3C2F75778B00AF266F /* PaceCoach */,
+				D79C1C412F75778B00AF266F /* PaceCoach Watch App */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		D734454D2F614D4600AB4463 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D79C1C3B2F75778B00AF266F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D79C1C402F75778B00AF266F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -240,6 +345,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D79C1C3E2F75778B00AF266F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E1A000052F70100100AB4463 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -257,6 +369,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		D79C1C452F75778B00AF266F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D79C1C412F75778B00AF266F /* PaceCoach Watch App */;
+			targetProxy = D79C1C442F75778B00AF266F /* PBXContainerItemProxy */;
+		};
 		E1A000082F70100100AB4463 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D734454E2F614D4600AB4463 /* Running */;
@@ -401,6 +518,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PaceCoach;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -434,6 +552,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PaceCoach;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -452,6 +571,108 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D79C1C4D2F75778C00AF266F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = C7K34QV394;
+				INFOPLIST_KEY_CFBundleDisplayName = PaceCoach;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = SCTN.Running.watchapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D79C1C4E2F75778C00AF266F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = C7K34QV394;
+				INFOPLIST_KEY_CFBundleDisplayName = PaceCoach;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = SCTN.Running.watchapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D79C1C502F75778C00AF266F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/RunningWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = C7K34QV394;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/WatchInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PaceCoach;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = SCTN.Running.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		D79C1C512F75778C00AF266F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/RunningWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = C7K34QV394;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/WatchInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PaceCoach;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = SCTN.Running.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};
@@ -558,6 +779,24 @@
 			buildConfigurations = (
 				D734455B2F614D4700AB4463 /* Debug */,
 				D734455C2F614D4700AB4463 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D79C1C522F75778C00AF266F /* Build configuration list for PBXNativeTarget "PaceCoach Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D79C1C502F75778C00AF266F /* Debug */,
+				D79C1C512F75778C00AF266F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D79C1C532F75778C00AF266F /* Build configuration list for PBXNativeTarget "PaceCoach" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D79C1C4D2F75778C00AF266F /* Debug */,
+				D79C1C4E2F75778C00AF266F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
