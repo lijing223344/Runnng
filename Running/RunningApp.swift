@@ -1,10 +1,12 @@
 import SwiftUI
+import WatchConnectivity
 
 @main
 struct RunningApp: App {
     @StateObject private var localization = LocalizationManager.shared
     @StateObject private var storage = StorageManager.shared
     @StateObject private var soundManager = SoundManager.shared
+    @StateObject private var phoneConnectivity = PhoneConnectivityManager.shared
 
     init() {
         if ProcessInfo.processInfo.arguments.contains("-ui_testing_reset") {
