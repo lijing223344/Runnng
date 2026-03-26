@@ -1,0 +1,24 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+xcuserdata/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Claude Code / CCB
+.ccb/
+output/
+scripts/
+
+# Secrets
+*.env
