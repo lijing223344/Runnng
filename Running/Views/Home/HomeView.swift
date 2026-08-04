@@ -92,6 +92,14 @@ struct HomeView: View {
                 accessibilityID: "model_400_open_button",
                 destination: AnyView(FourHundredModelGeneratorView())
             )
+            HomeEntryCard(
+                icon: "ruler",
+                title: "mini_hurdle_title".localized,
+                subtitle: "mini_hurdle_home_desc".localized,
+                accent: DS.Colors.miniHurdle,
+                accessibilityID: "mini_hurdle_open_button",
+                destination: AnyView(MiniHurdleSpacingView())
+            )
         }
     }
 

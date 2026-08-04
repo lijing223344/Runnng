@@ -9,14 +9,51 @@ final class RunningUITests: XCTestCase {
         XCUIApplication().terminate()
     }
 
-    private func launchApp() -> XCUIApplication {
+    private func launchApp(
+        language: String = "en",
+        locale: String = "en_US",
+        additionalArguments: [String] = []
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         if app.state != .notRunning {
             app.terminate()
         }
-        app.launchArguments += ["-ui_testing_reset", "-ui_testing_disable_sound", "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-app_language", "en"]
+        app.launchArguments += [
+            "-ui_testing_reset",
+            "-ui_testing_disable_sound",
+            "-AppleLanguages",
+            "(\(language))",
+            "-AppleLocale",
+            locale,
+            "-app_language",
+            language
+        ]
+        app.launchArguments += additionalArguments
         app.launch()
         return app
+    }
+
+    private func captureReferenceScreenshot(
+        name: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+
+        let screenshotsDirectory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+            .appendingPathComponent("mini-hurdle-ui", isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: screenshotsDirectory, withIntermediateDirectories: true)
+            let screenshotURL = screenshotsDirectory.appendingPathComponent("\(name).png")
+            try screenshot.pngRepresentation.write(to: screenshotURL)
+        } catch {
+            XCTFail("Failed to save screenshot \(name): \(error)", file: file, line: line)
+        }
     }
 
     @discardableResult
@@ -93,6 +130,60 @@ final class RunningUITests: XCTestCase {
         )
     }
 
+    private func openMiniHurdleModule(_ app: XCUIApplication) {
+        let miniHurdleEntry = app.buttons["mini_hurdle_open_button"]
+        XCTAssertTrue(miniHurdleEntry.waitForExistence(timeout: 5))
+        miniHurdleEntry.tap()
+        XCTAssertTrue(app.scrollViews["mini_hurdle_scroll"].waitForExistence(timeout: 3))
+    }
+
+    private func replaceText(in element: XCUIElement, with text: String) {
+        XCTAssertTrue(element.waitForExistence(timeout: 3))
+        element.tap()
+
+        if let currentValue = element.value as? String,
+           currentValue.isEmpty == false,
+           currentValue != element.placeholderValue {
+            let deleteSequence = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+            element.typeText(deleteSequence)
+        }
+
+        element.typeText(text)
+    }
+
+    private func waitForLabel(
+        of element: XCUIElement,
+        equals expectedLabel: String,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        waitUntil(timeout: timeout) {
+            element.exists && element.label == expectedLabel
+        }
+    }
+
+    private func scrollToTop(_ scrollView: XCUIElement) {
+        for _ in 0..<5 {
+            scrollView.swipeDown()
+        }
+    }
+
+    private func makeElementHittable(
+        _ element: XCUIElement,
+        in scrollView: XCUIElement,
+        swipingUp maxSwipes: Int = 6
+    ) {
+        if element.waitForExistence(timeout: 1), element.isHittable {
+            return
+        }
+
+        for _ in 0..<maxSwipes {
+            scrollView.swipeUp()
+            if element.waitForExistence(timeout: 1), element.isHittable {
+                return
+            }
+        }
+    }
+
     func test400ModelGeneratesPaceDraftPlan() throws {
         let app = launchApp()
 
@@ -150,6 +241,280 @@ final class RunningUITests: XCTestCase {
 
         let generatedTitle = app.staticTexts["Women 400m 50.00 - 50m"]
         XCTAssertTrue(generatedTitle.waitForExistence(timeout: 5))
+    }
+
+    func testMiniHurdleModuleRendersInChineseAndCapturesReferenceScreens() throws {
+        let app = launchApp(language: "zh-Hans", locale: "zh_CN")
+
+        let miniHurdleEntry = app.buttons["mini_hurdle_open_button"]
+        XCTAssertTrue(miniHurdleEntry.waitForExistence(timeout: 5))
+        miniHurdleEntry.tap()
+
+        XCTAssertTrue(app.navigationBars.staticTexts["小栏架栏距"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.scrollViews["mini_hurdle_scroll"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["现场设定"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["GT 下肢长（大转子高度）"].waitForExistence(timeout: 3))
+
+        captureReferenceScreenshot(name: "mini-hurdle-top")
+
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        scrollView.swipeUp()
+
+        XCTAssertTrue(app.staticTexts["目标栏距方案"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["本次摆栏结果"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["2.02 米"].waitForExistence(timeout: 3))
+
+        captureReferenceScreenshot(name: "mini-hurdle-middle")
+
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+
+        XCTAssertTrue(app.staticTexts["加栏顺序"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["调距判断"].waitForExistence(timeout: 3))
+
+        captureReferenceScreenshot(name: "mini-hurdle-bottom")
+    }
+
+    func testMiniHurdleModuleStagesVisualInspectionInChinese() throws {
+        let app = launchApp(language: "zh-Hans", locale: "zh_CN")
+
+        let miniHurdleEntry = app.buttons["mini_hurdle_open_button"]
+        XCTAssertTrue(miniHurdleEntry.waitForExistence(timeout: 5))
+        miniHurdleEntry.tap()
+
+        XCTAssertTrue(app.staticTexts["现场设定"].waitForExistence(timeout: 8))
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
+
+        sleep(4)
+        scrollView.swipeUp()
+        XCTAssertTrue(app.staticTexts["本次摆栏结果"].waitForExistence(timeout: 5))
+
+        sleep(4)
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+        XCTAssertTrue(app.staticTexts["调距判断"].waitForExistence(timeout: 5))
+
+        sleep(4)
+    }
+
+    func testMiniHurdleDirectLaunchStagesVisualInspectionInChinese() throws {
+        let app = XCUIApplication()
+        if app.state != .notRunning {
+            app.terminate()
+        }
+        app.launchArguments += [
+            "-ui_testing_reset",
+            "-ui_testing_disable_sound",
+            "-ui_testing_open_mini_hurdle",
+            "-AppleLanguages",
+            "(zh-Hans)",
+            "-AppleLocale",
+            "zh_CN",
+            "-app_language",
+            "zh-Hans"
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["现场设定"].waitForExistence(timeout: 8))
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
+
+        sleep(5)
+        scrollView.swipeUp()
+        XCTAssertTrue(app.staticTexts["本次摆栏结果"].waitForExistence(timeout: 5))
+
+        sleep(5)
+        scrollView.swipeUp()
+        scrollView.swipeUp()
+        XCTAssertTrue(app.staticTexts["调距判断"].waitForExistence(timeout: 5))
+
+        sleep(5)
+    }
+
+    func testMiniHurdleMeasurementReferenceCapturesUpperAndLowerScreens() throws {
+        let app = XCUIApplication()
+        if app.state != .notRunning {
+            app.terminate()
+        }
+        app.launchArguments += [
+            "-ui_testing_reset",
+            "-ui_testing_disable_sound",
+            "-ui_testing_open_mini_hurdle",
+            "-ui_testing_mini_hurdle_section",
+            "measurement",
+            "-AppleLanguages",
+            "(zh-Hans)",
+            "-AppleLocale",
+            "zh_CN",
+            "-app_language",
+            "zh-Hans"
+        ]
+        app.launch()
+
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["先确认 GT 高度"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.images["mini_hurdle_measurement_full_image"].waitForExistence(timeout: 5))
+
+        captureReferenceScreenshot(name: "mini-hurdle-measurement-upper")
+
+        let detailToggle = app.buttons["mini_hurdle_measurement_detail_toggle"]
+        XCTAssertTrue(detailToggle.waitForExistence(timeout: 3))
+        detailToggle.tap()
+
+        XCTAssertTrue(app.staticTexts["GT 测量口径"].waitForExistence(timeout: 5))
+        captureReferenceScreenshot(name: "mini-hurdle-measurement-lower")
+    }
+
+    func testMiniHurdleMeasurementDiagramIsDirectAndActionable() throws {
+        let app = XCUIApplication()
+        if app.state != .notRunning {
+            app.terminate()
+        }
+        app.launchArguments += [
+            "-ui_testing_reset",
+            "-ui_testing_disable_sound",
+            "-ui_testing_open_mini_hurdle",
+            "-ui_testing_mini_hurdle_section",
+            "measurement",
+            "-AppleLanguages",
+            "(zh-Hans)",
+            "-AppleLocale",
+            "zh_CN",
+            "-app_language",
+            "zh-Hans"
+        ]
+        app.launch()
+
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+
+        XCTAssertTrue(app.images["mini_hurdle_measurement_full_image"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["mini_hurdle_gt_marker"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["mini_hurdle_vertical_measure_line"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["mini_hurdle_measurement_detail_toggle"].waitForExistence(timeout: 3))
+    }
+
+    func testMiniHurdleMainTableMatchesWorkbookCumulativeCoordinates() throws {
+        let app = XCUIApplication()
+        if app.state != .notRunning {
+            app.terminate()
+        }
+        app.launchArguments += [
+            "-ui_testing_reset",
+            "-ui_testing_disable_sound",
+            "-ui_testing_open_mini_hurdle",
+            "-ui_testing_mini_hurdle_section",
+            "hurdles",
+            "-AppleLanguages",
+            "(zh-Hans)",
+            "-AppleLocale",
+            "zh_CN",
+            "-app_language",
+            "zh-Hans"
+        ]
+        app.launch()
+
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["现场摆放表"].waitForExistence(timeout: 5))
+
+        let firstPoint = app.staticTexts["mini_hurdle_point_1"]
+        let firstSpacing = app.staticTexts["mini_hurdle_spacing_1"]
+        let lastPoint = app.staticTexts["mini_hurdle_point_21"]
+
+        XCTAssertTrue(firstPoint.waitForExistence(timeout: 5))
+        XCTAssertTrue(firstSpacing.waitForExistence(timeout: 5))
+        XCTAssertTrue(lastPoint.waitForExistence(timeout: 5))
+
+        XCTAssertEqual(firstPoint.label, "10.155")
+        XCTAssertEqual(firstSpacing.label, "1.61 米")
+        XCTAssertEqual(lastPoint.label, "47.905")
+    }
+
+    func testMiniHurdleMainTableShowsContinuousExcelChainFromStartThroughAccMarks() throws {
+        let app = XCUIApplication()
+        if app.state != .notRunning {
+            app.terminate()
+        }
+        app.launchArguments += [
+            "-ui_testing_reset",
+            "-ui_testing_disable_sound",
+            "-ui_testing_open_mini_hurdle",
+            "-ui_testing_mini_hurdle_section",
+            "hurdles",
+            "-AppleLanguages",
+            "(zh-Hans)",
+            "-AppleLocale",
+            "zh_CN",
+            "-app_language",
+            "zh-Hans"
+        ]
+        app.launch()
+
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+
+        let startPoint = app.staticTexts["mini_hurdle_sequence_point_0"]
+        let acc7Point = app.staticTexts["mini_hurdle_sequence_point_7"]
+        let hurdle1Point = app.staticTexts["mini_hurdle_point_1"]
+
+        XCTAssertTrue(startPoint.waitForExistence(timeout: 5))
+        XCTAssertTrue(acc7Point.waitForExistence(timeout: 5))
+        XCTAssertTrue(hurdle1Point.waitForExistence(timeout: 5))
+
+        XCTAssertEqual(startPoint.label, "0.00")
+        XCTAssertEqual(acc7Point.label, "8.545")
+        XCTAssertEqual(hurdle1Point.label, "10.155")
+
+        captureReferenceScreenshot(name: "mini-hurdle-hurdles-chain")
+    }
+
+    func testMiniHurdleAthleteProfilesSupportSaveSwitchRenameAndDelete() throws {
+        let app = launchApp(
+            language: "zh-Hans",
+            locale: "zh_CN",
+            additionalArguments: [
+                "-ui_testing_open_mini_hurdle",
+                "-ui_testing_seed_mini_hurdle",
+                "athleteProfiles"
+            ]
+        )
+        let scrollView = app.scrollViews["mini_hurdle_scroll"]
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+
+        let currentAthleteName = app.staticTexts["mini_hurdle_current_athlete_name"]
+        XCTAssertTrue(waitForLabel(of: currentAthleteName, equals: "AthleteB"))
+
+        let switchButton = app.buttons["mini_hurdle_athlete_switch_button"]
+        XCTAssertTrue(switchButton.waitForExistence(timeout: 3))
+        switchButton.tap()
+
+        let firstAthleteRow = app.buttons["mini_hurdle_athlete_picker_name_AthleteA"]
+        XCTAssertTrue(firstAthleteRow.waitForExistence(timeout: 3))
+        firstAthleteRow.tap()
+
+        XCTAssertTrue(waitForLabel(of: currentAthleteName, equals: "AthleteA"))
+
+        let manageButton = app.buttons["mini_hurdle_athlete_manage_button"]
+        XCTAssertTrue(manageButton.waitForExistence(timeout: 3))
+        manageButton.tap()
+
+        let editorSaveButton = app.buttons["mini_hurdle_athlete_editor_save"]
+        XCTAssertTrue(editorSaveButton.waitForExistence(timeout: 3))
+        // 删除按钮位于编辑器表单底部，懒渲染需先滚动到可视区域
+        app.swipeUp()
+
+        let deleteButton = app.buttons["mini_hurdle_athlete_delete_button"]
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 3))
+        deleteButton.tap()
+
+        let deleteConfirmButton = app.buttons.matching(identifier: "mini_hurdle_athlete_delete_confirm").firstMatch
+        XCTAssertTrue(deleteConfirmButton.waitForExistence(timeout: 3))
+        deleteConfirmButton.tap()
+
+        XCTAssertTrue(waitForLabel(of: currentAthleteName, equals: "AthleteB"))
     }
 
     func testPaceCardTapDoesNotTriggerDuplicate() throws {

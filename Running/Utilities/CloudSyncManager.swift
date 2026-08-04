@@ -25,7 +25,9 @@ final class CloudSyncManager: ObservableObject {
         "training_records",
         "user_settings",
         "pace_run_training",
-        "interval_training_single"
+        "interval_training_single",
+        "mini_hurdle_profiles",
+        "selected_mini_hurdle_profile_id"
     ]
 
     private init() {

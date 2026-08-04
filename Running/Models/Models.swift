@@ -577,6 +577,65 @@ struct SavedPlan: Codable, Identifiable {
     }
 }
 
+struct MiniHurdleAthleteProfile: Codable, Identifiable, Equatable {
+    var id: UUID
+    var name: String
+    var profile: MiniHurdleProfile
+    var greaterTrochanterLength: Double
+    var measurementUnit: MiniHurdleMeasurementUnit
+    var strategyKind: MiniHurdleStrategyKind
+    var customRatio: Double?
+    var updatedAt: Date
+    var lastUsedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        name: String = "",
+        profile: MiniHurdleProfile = .women,
+        greaterTrochanterLength: Double = 0.86,
+        measurementUnit: MiniHurdleMeasurementUnit = .centimeters,
+        strategyKind: MiniHurdleStrategyKind = .mannRecommended,
+        customRatio: Double? = nil,
+        updatedAt: Date = Date(),
+        lastUsedAt: Date? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.profile = profile
+        self.greaterTrochanterLength = greaterTrochanterLength
+        self.measurementUnit = measurementUnit
+        self.strategyKind = strategyKind
+        self.customRatio = customRatio
+        self.updatedAt = updatedAt
+        self.lastUsedAt = lastUsedAt ?? updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case profile
+        case greaterTrochanterLength
+        case measurementUnit
+        case strategyKind
+        case customRatio
+        case updatedAt
+        case lastUsedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        self.profile = try c.decodeIfPresent(MiniHurdleProfile.self, forKey: .profile) ?? .women
+        self.greaterTrochanterLength = try c.decodeIfPresent(Double.self, forKey: .greaterTrochanterLength) ?? 0.86
+        self.measurementUnit = try c.decodeIfPresent(MiniHurdleMeasurementUnit.self, forKey: .measurementUnit) ?? .centimeters
+        self.strategyKind = try c.decodeIfPresent(MiniHurdleStrategyKind.self, forKey: .strategyKind) ?? .mannRecommended
+        self.customRatio = try c.decodeIfPresent(Double.self, forKey: .customRatio)
+        self.updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+        self.lastUsedAt = try c.decodeIfPresent(Date.self, forKey: .lastUsedAt) ?? self.updatedAt
+    }
+}
+
 // MARK: - Presets
 
 enum PresetDistance: Int, CaseIterable, Identifiable { case _100=100,_200=200,_400=400,_800=800,_1500=1500,_3000=3000,_5000=5000

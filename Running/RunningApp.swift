@@ -12,6 +12,7 @@ struct RunningApp: App {
         if ProcessInfo.processInfo.arguments.contains("-ui_testing_reset") {
             StorageManager.shared.resetForUITests()
         }
+        StorageManager.shared.seedMiniHurdleProfilesForUITestsIfNeeded()
     }
 
     var body: some Scene {

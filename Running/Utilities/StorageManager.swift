@@ -12,6 +12,7 @@ class StorageManager: ObservableObject {
         static let paceRunConfigs = "pace_run_configs"; static let intervalTrainings = "interval_trainings"
         static let trainingRecords = "training_records"; static let isLoggedIn = "is_logged_in"; static let isGuest = "is_guest"
         static let paceRunTraining = "pace_run_training"; static let intervalTraining = "interval_training_single"; static let savedPlans = "saved_plans"
+        static let miniHurdleProfiles = "mini_hurdle_profiles"; static let selectedMiniHurdleProfileID = "selected_mini_hurdle_profile_id"
     }
     private init() {
         observeCloudChanges()
@@ -92,7 +93,9 @@ class StorageManager: ObservableObject {
             Keys.trainingRecords,
             Keys.paceRunTraining,
             Keys.intervalTraining,
-            Keys.savedPlans
+            Keys.savedPlans,
+            Keys.miniHurdleProfiles,
+            Keys.selectedMiniHurdleProfileID
         ]
 
         for baseKey in baseKeysToDelete {
@@ -320,6 +323,77 @@ class StorageManager: ObservableObject {
         savePlans(plans)
     }
 
+    // MARK: - Mini Hurdle Athlete Profiles
+
+    func saveMiniHurdleProfiles(_ profiles: [MiniHurdleAthleteProfile]) {
+        let key = scopedKey(Keys.miniHurdleProfiles)
+        let sortedProfiles = sortMiniHurdleProfiles(profiles)
+        if let data = try? JSONEncoder().encode(sortedProfiles) {
+            defaults.set(data, forKey: key)
+            if shouldSyncToCloud {
+                sync.push(key: key, data: data)
+            }
+        }
+
+        if let selectedID = loadSelectedMiniHurdleProfileID(),
+           sortedProfiles.contains(where: { $0.id == selectedID }) == false {
+            saveSelectedMiniHurdleProfileID(nil)
+        }
+    }
+
+    func loadMiniHurdleProfiles() -> [MiniHurdleAthleteProfile] {
+        if let data = loadData(for: Keys.miniHurdleProfiles),
+           let profiles = try? JSONDecoder().decode([MiniHurdleAthleteProfile].self, from: data) {
+            return sortMiniHurdleProfiles(profiles)
+        }
+        return []
+    }
+
+    @discardableResult
+    func upsertMiniHurdleProfile(_ profile: MiniHurdleAthleteProfile) -> MiniHurdleAthleteProfile {
+        var profiles = loadMiniHurdleProfiles()
+        if let idx = profiles.firstIndex(where: { $0.id == profile.id }) {
+            profiles[idx] = profile
+        } else {
+            profiles.append(profile)
+        }
+        saveMiniHurdleProfiles(profiles)
+        return profile
+    }
+
+    func deleteMiniHurdleProfile(_ profileID: UUID) {
+        var profiles = loadMiniHurdleProfiles()
+        profiles.removeAll { $0.id == profileID }
+        saveMiniHurdleProfiles(profiles)
+
+        if loadSelectedMiniHurdleProfileID() == profileID {
+            saveSelectedMiniHurdleProfileID(nil)
+        }
+    }
+
+    func saveSelectedMiniHurdleProfileID(_ profileID: UUID?) {
+        let key = scopedKey(Keys.selectedMiniHurdleProfileID)
+        guard let profileID else {
+            defaults.removeObject(forKey: key)
+            if shouldSyncToCloud {
+                sync.remove(key: key)
+            }
+            return
+        }
+
+        if let data = try? JSONEncoder().encode(profileID) {
+            defaults.set(data, forKey: key)
+            if shouldSyncToCloud {
+                sync.push(key: key, data: data)
+            }
+        }
+    }
+
+    func loadSelectedMiniHurdleProfileID() -> UUID? {
+        guard let data = loadData(for: Keys.selectedMiniHurdleProfileID) else { return nil }
+        return try? JSONDecoder().decode(UUID.self, from: data)
+    }
+
     // MARK: - Reset
 
     func resetForUITests() {
@@ -339,7 +413,9 @@ class StorageManager: ObservableObject {
             "\(Keys.trainingRecords)::",
             "\(Keys.paceRunTraining)::",
             "\(Keys.intervalTraining)::",
-            "\(Keys.savedPlans)::"
+            "\(Keys.savedPlans)::",
+            "\(Keys.miniHurdleProfiles)::",
+            "\(Keys.selectedMiniHurdleProfileID)::"
         ]
         for key in defaults.dictionaryRepresentation().keys {
             if scopedPrefixes.contains(where: { key.hasPrefix($0) }) {
@@ -355,10 +431,47 @@ class StorageManager: ObservableObject {
         defaults.removeObject(forKey: Keys.paceRunTraining)
         defaults.removeObject(forKey: Keys.intervalTraining)
         defaults.removeObject(forKey: Keys.savedPlans)
+        defaults.removeObject(forKey: Keys.miniHurdleProfiles)
+        defaults.removeObject(forKey: Keys.selectedMiniHurdleProfileID)
 
         currentUser = nil
         isLoggedIn = false
         isGuest = false
+    }
+
+    func seedMiniHurdleProfilesForUITestsIfNeeded() {
+        guard AppRuntimeConfiguration.miniHurdleSeedScenario() == .athleteProfiles else { return }
+
+        let athleteAID = UUID(uuidString: "11111111-1111-1111-1111-111111111111") ?? UUID()
+        let athleteBID = UUID(uuidString: "22222222-2222-2222-2222-222222222222") ?? UUID()
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let profiles = [
+            MiniHurdleAthleteProfile(
+                id: athleteAID,
+                name: "AthleteA",
+                profile: .women,
+                greaterTrochanterLength: 0.86,
+                measurementUnit: .centimeters,
+                strategyKind: .mannRecommended,
+                customRatio: nil,
+                updatedAt: baseDate,
+                lastUsedAt: baseDate.addingTimeInterval(60)
+            ),
+            MiniHurdleAthleteProfile(
+                id: athleteBID,
+                name: "AthleteB",
+                profile: .men,
+                greaterTrochanterLength: 0.92,
+                measurementUnit: .centimeters,
+                strategyKind: .clarkRange,
+                customRatio: nil,
+                updatedAt: baseDate.addingTimeInterval(30),
+                lastUsedAt: baseDate.addingTimeInterval(120)
+            )
+        ]
+
+        saveMiniHurdleProfiles(profiles)
+        saveSelectedMiniHurdleProfileID(athleteBID)
     }
 
     // MARK: - Internal Helpers
@@ -395,7 +508,9 @@ class StorageManager: ObservableObject {
             Keys.trainingRecords,
             Keys.paceRunTraining,
             Keys.intervalTraining,
-            Keys.savedPlans
+            Keys.savedPlans,
+            Keys.miniHurdleProfiles,
+            Keys.selectedMiniHurdleProfileID
         ]
 
         for baseKey in baseKeys {
@@ -404,6 +519,18 @@ class StorageManager: ObservableObject {
                let legacyObject = defaults.object(forKey: baseKey) {
                 defaults.set(legacyObject, forKey: destinationKey)
             }
+        }
+    }
+
+    private func sortMiniHurdleProfiles(_ profiles: [MiniHurdleAthleteProfile]) -> [MiniHurdleAthleteProfile] {
+        profiles.sorted { lhs, rhs in
+            if lhs.lastUsedAt == rhs.lastUsedAt {
+                if lhs.updatedAt == rhs.updatedAt {
+                    return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                }
+                return lhs.updatedAt > rhs.updatedAt
+            }
+            return lhs.lastUsedAt > rhs.lastUsedAt
         }
     }
 }
