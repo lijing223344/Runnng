@@ -266,6 +266,8 @@ class StorageManager: ObservableObject {
             if shouldSyncToCloud {
                 sync.push(key: key, data: data)
             }
+            // Sync plans to Watch whenever local plans change
+            PhoneConnectivityManager.shared.syncPlansToWatch()
         }
     }
 

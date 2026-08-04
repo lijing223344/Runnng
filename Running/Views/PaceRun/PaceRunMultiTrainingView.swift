@@ -97,11 +97,13 @@ struct PaceRunMultiTrainingView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
                 ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
+                    if index < groupStates.count {
                     PaceRunGroupTrainingCard(
                         group: group,
                         state: groupStates[index],
                         onPauseToggle: { togglePauseGroup(index) }
                     )
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -184,7 +186,7 @@ struct PaceRunMultiTrainingView: View {
             } else {
                 self.timer?.invalidate()
                 self.isCountdown = false
-                self.soundManager.playConfiguredRunStartSound()
+                self.soundManager.playSound(self.training.groups.first?.startSound ?? .whistleStandard)
                 self.startAllGroups()
             }
         }
@@ -260,12 +262,12 @@ struct PaceRunMultiTrainingView: View {
                             let finishedIndex = max(0, groupStates[index].currentSegment - 1)
                             let restAfter = max(0, group.restAfterSegment(finishedIndex))
                             if restAfter > epsilon {
-                                soundManager.playSegmentShortWhistle()
+                                soundManager.playSound(group.segmentSound)
                                 groupStates[index].phase = .resting
                                 groupStates[index].remainingTime = restAfter
                                 groupStates[index].restKind = .segment
                             } else {
-                                soundManager.playSegmentShortWhistle()
+                                soundManager.playSound(group.segmentSound)
                                 groupStates[index].currentSegment += 1
                                 let nextSegIndex = max(0, groupStates[index].currentSegment - 1)
                                 groupStates[index].remainingTime = max(0, group.timeForSegment(nextSegIndex))
@@ -276,7 +278,7 @@ struct PaceRunMultiTrainingView: View {
                             if groupStates[index].currentSet < group.effectiveSetCount {
                                 let setRest = group.effectiveSetRest
                                 if setRest > epsilon {
-                                    soundManager.playSegmentShortWhistle()
+                                    soundManager.playSound(group.segmentSound)
                                     groupStates[index].phase = .resting
                                     groupStates[index].remainingTime = setRest
                                     groupStates[index].restKind = .set
@@ -286,7 +288,7 @@ struct PaceRunMultiTrainingView: View {
                                     groupStates[index].phase = .running
                                     groupStates[index].remainingTime = max(0, group.timeForSegment(0))
                                     groupStates[index].restKind = nil
-                                    soundManager.playStandardWhistle()
+                                    soundManager.playSound(group.startSound)
                                 }
                             } else {
                                 groupStates[index].isCompleted = true
@@ -303,7 +305,7 @@ struct PaceRunMultiTrainingView: View {
                                 groupStates[index].remainingTime = max(0, group.timeForSegment(0))
                                 groupStates[index].phase = .running
                                 groupStates[index].restKind = nil
-                                soundManager.playStandardWhistle()
+                                soundManager.playSound(group.startSound)
                             } else {
                                 groupStates[index].isCompleted = true
                                 groupStates[index].phase = .completed
@@ -316,7 +318,7 @@ struct PaceRunMultiTrainingView: View {
                             groupStates[index].remainingTime = max(0, group.timeForSegment(nextSegIndex))
                             groupStates[index].phase = .running
                             groupStates[index].restKind = nil
-                            soundManager.playSegmentShortWhistle()
+                            soundManager.playSound(group.segmentSound)
                         } else {
                             groupStates[index].isCompleted = true
                             groupStates[index].phase = .completed
@@ -335,7 +337,10 @@ struct PaceRunMultiTrainingView: View {
         }
     }
 
-    private func togglePauseGroup(_ index: Int) { groupStates[index].isPaused.toggle() }
+    private func togglePauseGroup(_ index: Int) {
+        guard index >= 0, index < groupStates.count else { return }
+        groupStates[index].isPaused.toggle()
+    }
     private func toggleGlobalPause() { isGlobalPaused.toggle() }
     private func stopTraining() {
         timer?.invalidate()
@@ -384,7 +389,7 @@ struct PaceRunGroupTrainingCard: View {
     let state: PaceRunGroupState
     let onPauseToggle: () -> Void
 
-    @State private var showMps: Bool = true
+    @State private var speedUnit: Int = 0  // 0=m/s, 1=min/km, 2=km/h
 
     private var groupColor: Color { Color(hex: group.colorHex) ?? .orange }
     private var segmentDistances: [Int] { group.segmentDistanceValues() }
@@ -424,7 +429,7 @@ struct PaceRunGroupTrainingCard: View {
         }
         .dsCard(radius: DS.Radius.lg, padding: 0)
         .onAppear {
-            showMps = StorageManager.shared.loadSettings().speedUnitMps
+            speedUnit = StorageManager.shared.loadSettings().speedUnit
         }
     }
 
@@ -556,16 +561,16 @@ struct PaceRunGroupTrainingCard: View {
                         .font(DS.Typo.timerSmall)
                         .foregroundStyle(.white)
                         .monospacedDigit()
-                    Text(showMps ? "m_per_s".localized : "/km".localized)
+                    Text(speedUnitLabel)
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
                 }
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    showMps.toggle()
+                    speedUnit = (speedUnit + 1) % 3
                     var settings = StorageManager.shared.loadSettings()
-                    settings.speedUnitMps = showMps
+                    settings.speedUnit = speedUnit
                     StorageManager.shared.saveSettings(settings)
                 }
             }
@@ -638,14 +643,22 @@ struct PaceRunGroupTrainingCard: View {
         let segDist = group.distanceForSegment(segIndex)
         let segTime = group.timeForSegment(segIndex)
         guard segDist > 0, segTime > 0 else { return "--" }
-        if showMps {
-            let mps = segDist / segTime
-            return String(format: "%.2f", mps)
-        } else {
+        switch speedUnit {
+        case 0: // m/s
+            return String(format: "%.2f", segDist / segTime)
+        case 2: // km/h
+            return String(format: "%.1f", segDist / segTime * 3.6)
+        default: // min/km
             let paceSeconds = segTime / segDist * 1000
-            let min = Int(paceSeconds) / 60
-            let sec = Int(paceSeconds) % 60
-            return String(format: "%d:%02d", min, sec)
+            return String(format: "%d:%02d", Int(paceSeconds) / 60, Int(paceSeconds) % 60)
+        }
+    }
+
+    private var speedUnitLabel: String {
+        switch speedUnit {
+        case 0: return "m_per_s".localized
+        case 2: return "km_per_h".localized
+        default: return "/km".localized
         }
     }
 

@@ -337,8 +337,7 @@ class SoundManager: ObservableObject {
     }
 
     func playConfiguredRunStartSound() {
-        let configured = StorageManager.shared.loadSettings().soundConfig.runStartSound
-        playSound(configured)
+        playSound(.whistleStandard)
     }
 
     func playSegmentShortWhistle() {

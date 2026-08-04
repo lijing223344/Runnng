@@ -741,7 +741,7 @@ struct PaceRunGroupEditorView: View {
     @State private var pickerSeconds: Int = 0
     @State private var pickerCenti:   Int = 0   // 0–99 centiseconds
     @State private var useCustomSegments: Bool = false
-    @State private var paceUnitKm: Bool = false  // Initialized in onAppear
+    @State private var speedUnit: Int = 0  // 0=m/s, 1=min/km, 2=km/h
     @State private var editingField: SegmentEditField? = nil
     @State private var editText: String = ""
     @FocusState private var segmentEditorFocused: Bool
@@ -911,7 +911,7 @@ struct PaceRunGroupEditorView: View {
                     group = prepareGroupForEditor(group)
                     syncPickerFromGroup()
                     intensityText = TrainingIntensity.displayText(group.intensityPercent)
-                    paceUnitKm = !StorageManager.shared.loadSettings().speedUnitMps
+                    speedUnit = StorageManager.shared.loadSettings().speedUnit
                 }
                 .sheet(item: $editingField, onDismiss: {
                     segmentEditorFocused = false
@@ -1031,8 +1031,8 @@ struct PaceRunGroupEditorView: View {
                 // Custom input
                 HStack {
                     Text("custom".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingIntInputField(
@@ -1046,12 +1046,19 @@ struct PaceRunGroupEditorView: View {
                         )
                         Text("meters".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -1113,8 +1120,8 @@ struct PaceRunGroupEditorView: View {
                     Divider()
                     HStack {
                         Text("custom".localized)
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(DS.Colors.textSecondary)
                         Spacer()
                         HStack(spacing: 4) {
                             FloatingIntInputField(
@@ -1127,12 +1134,19 @@ struct PaceRunGroupEditorView: View {
                             )
                             Text("meters".localized)
                                 .font(.system(size: 14))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DS.Colors.textSecondary)
+                            Image(systemName: "square.and.pencil")
+                                .font(.system(size: 12))
+                                .foregroundStyle(DS.Colors.textTertiary)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(DS.Colors.field)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                        )
                     }
                 }
 
@@ -1702,12 +1716,12 @@ struct PaceRunGroupEditorView: View {
 
                 // Live stats row
                 HStack(spacing: 0) {
-                    liveStatCell(label: paceUnitKm ? "pace".localized : "speed".localized,
+                    liveStatCell(label: speedUnit == 1 ? "pace".localized : "speed".localized,
                                  value: liveFormatPace(), color: .orange)
                         .onTapGesture {
-                            paceUnitKm.toggle()
+                            speedUnit = (speedUnit + 1) % 3
                             var settings = StorageManager.shared.loadSettings()
-                            settings.speedUnitMps = !paceUnitKm
+                            settings.speedUnit = speedUnit
                             StorageManager.shared.saveSettings(settings)
                         }
                     Divider().frame(height: 36)
@@ -1759,8 +1773,8 @@ struct PaceRunGroupEditorView: View {
 
                 HStack {
                     Text("model_400_intensity_custom".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingTextInputField(
@@ -1774,12 +1788,19 @@ struct PaceRunGroupEditorView: View {
                         )
                         Text("%")
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
 
                 Text("model_400_intensity_hint".localized)
@@ -1837,12 +1858,14 @@ struct PaceRunGroupEditorView: View {
     private func liveFormatPace() -> String {
         let t = pickerTotalTime
         guard group.totalDistance > 0, t > 0 else { return "--" }
-        if paceUnitKm {
+        switch speedUnit {
+        case 0: // m/s
+            return String(format: "%.2f %@", Double(group.totalDistance) / t, "m_per_s".localized)
+        case 2: // km/h
+            return String(format: "%.1f %@", Double(group.totalDistance) / t * 3.6, "km_per_h".localized)
+        default: // min/km
             let ps = t / Double(group.totalDistance) * 1000
             return String(format: "%d:%02d%@", Int(ps) / 60, Int(ps) % 60, "/km".localized)
-        } else {
-            let mps = Double(group.totalDistance) / t
-            return String(format: "%.2f %@", mps, "m_per_s".localized)
         }
     }
 
@@ -1881,8 +1904,8 @@ struct PaceRunGroupEditorView: View {
                 }
                 HStack {
                     Text("custom".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingIntInputField(
@@ -1895,12 +1918,19 @@ struct PaceRunGroupEditorView: View {
                         )
                         Text("sec_label".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -1911,8 +1941,8 @@ struct PaceRunGroupEditorView: View {
             VStack(spacing: 10) {
                 HStack {
                     Text("set_count".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingIntInputField(
@@ -1928,18 +1958,25 @@ struct PaceRunGroupEditorView: View {
                         )
                         Text("set_unit".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
 
                 HStack {
                     Text("inter_set_rest".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingDoubleInputField(
@@ -1956,12 +1993,19 @@ struct PaceRunGroupEditorView: View {
                         )
                         Text("sec_label".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -1998,17 +2042,9 @@ struct PaceRunGroupEditorView: View {
     private var soundCard: some View {
         EditorCard(title: "sound_settings".localized, icon: "speaker.wave.2.fill", iconColor: .indigo) {
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                    Text("start_segment_whistle_fixed_hint".localized)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
-                    Spacer()
-                }
-                .padding(.vertical, 10)
+                soundRow(label: "start_sound".localized, selection: $group.startSound)
+                Divider().padding(.leading, 4)
+                soundRow(label: "segment_sound".localized, selection: $group.segmentSound)
                 Divider().padding(.leading, 4)
                 soundRow(label: "end_sound".localized, selection: $group.endSound)
             }

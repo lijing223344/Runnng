@@ -700,7 +700,7 @@ struct IntervalGroupEditorView: View {
     @State private var runSec: Int = 15
     @State private var restMin: Int = 0
     @State private var restSec: Int = 45
-    @State private var paceUnitKm: Bool = false
+    @State private var speedUnit: Int = 0  // 0=m/s, 1=min/km, 2=km/h
     @State private var useCustomRepeats: Bool = false
     @State private var customRepeats: [IntervalRepeatConfig] = []
     @State private var editingRepeatField: RepeatEditField? = nil
@@ -828,7 +828,7 @@ struct IntervalGroupEditorView: View {
                     customRepeats = Array((group.customRepeats ?? []).prefix(IntervalPlanLimits.maxCustomRepeats))
                     syncPickersFromGroup()
                     intensityText = TrainingIntensity.displayText(group.intensityPercent)
-                    paceUnitKm = !StorageManager.shared.loadSettings().speedUnitMps
+                    speedUnit = StorageManager.shared.loadSettings().speedUnit
                     if useCustomRepeats && customRepeats.isEmpty {
                         customRepeats = defaultCustomRepeats()
                     }
@@ -882,21 +882,33 @@ struct IntervalGroupEditorView: View {
                 Divider()
                 HStack {
                     Text("custom".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
-                    FloatingIntInputField(
-                        placeholder: "100",
-                        title: "run_distance".localized,
-                        value: $group.runDistance,
-                        width: 72,
-                        minValue: 1,
-                        maxValue: IntervalPlanLimits.maxRunDistance
-                    )
-                    .padding(.horizontal, 10)
+                    HStack(spacing: 4) {
+                        FloatingIntInputField(
+                            placeholder: "100",
+                            title: "run_distance".localized,
+                            value: $group.runDistance,
+                            width: 72,
+                            minValue: 1,
+                            maxValue: IntervalPlanLimits.maxRunDistance
+                        )
+                        Text("meters".localized)
+                            .font(.system(size: 14))
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
+                    }
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -967,8 +979,8 @@ struct IntervalGroupEditorView: View {
 
                 HStack {
                     Text("custom".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingIntInputField(
@@ -982,12 +994,19 @@ struct IntervalGroupEditorView: View {
                         )
                         Text("repetitions".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -1025,8 +1044,8 @@ struct IntervalGroupEditorView: View {
 
                 HStack {
                     Text("model_400_intensity_custom".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingTextInputField(
@@ -1040,12 +1059,19 @@ struct IntervalGroupEditorView: View {
                         )
                         Text("%")
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
 
                 Text("model_400_intensity_hint".localized)
@@ -1383,8 +1409,8 @@ struct IntervalGroupEditorView: View {
 
                 HStack {
                     Text("custom".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingIntInputField(
@@ -1400,12 +1426,19 @@ struct IntervalGroupEditorView: View {
                         )
                         Text("sec_label".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -1416,8 +1449,8 @@ struct IntervalGroupEditorView: View {
             VStack(spacing: 10) {
                 HStack {
                     Text("set_count".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingIntInputField(
@@ -1433,18 +1466,25 @@ struct IntervalGroupEditorView: View {
                         )
                         Text("set_unit".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
 
                 HStack {
                     Text("inter_set_rest".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     HStack(spacing: 4) {
                         FloatingDoubleInputField(
@@ -1461,12 +1501,19 @@ struct IntervalGroupEditorView: View {
                         )
                         Text("sec_label".localized)
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Colors.textTertiary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(DS.Colors.field)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -1475,11 +1522,11 @@ struct IntervalGroupEditorView: View {
     private var livePaceRow: some View {
         EditorCard(title: "speed".localized, icon: "speedometer", iconColor: .orange) {
             HStack(spacing: 0) {
-                liveCell(label: paceUnitKm ? "pace".localized : "speed".localized, value: livePace(), color: .orange)
+                liveCell(label: speedUnit == 1 ? "pace".localized : "speed".localized, value: livePace(), color: .orange)
                     .onTapGesture {
-                        paceUnitKm.toggle()
+                        speedUnit = (speedUnit + 1) % 3
                         var settings = StorageManager.shared.loadSettings()
-                        settings.speedUnitMps = !paceUnitKm
+                        settings.speedUnit = speedUnit
                         StorageManager.shared.saveSettings(settings)
                     }
                 Divider().frame(height: 36)
@@ -1546,6 +1593,9 @@ struct IntervalGroupEditorView: View {
             .padding(.vertical, 6)
             .background(DS.Colors.field)
             .clipShape(RoundedRectangle(cornerRadius: 9))
+            .onChange(of: selection.wrappedValue) { _, v in
+                SoundManager.shared.playSound(v)
+            }
         }
         .padding(.vertical, 10)
     }
@@ -1580,12 +1630,19 @@ struct IntervalGroupEditorView: View {
                     )
                     Text("min_label".localized)
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.textSecondary)
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Colors.textTertiary)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .background(DS.Colors.field)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                )
 
                 HStack(spacing: 4) {
                     FloatingIntInputField(
@@ -1601,12 +1658,19 @@ struct IntervalGroupEditorView: View {
                     )
                     Text("sec_label".localized)
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.textSecondary)
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Colors.textTertiary)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .background(DS.Colors.field)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                )
                 Spacer()
             }
 
@@ -1641,12 +1705,14 @@ struct IntervalGroupEditorView: View {
         let runDistance = Double(max(1, group.runDistance))
         guard runTime > 0, runDistance > 0 else { return "--" }
 
-        if paceUnitKm {
+        switch speedUnit {
+        case 0:
+            return String(format: "%.2f %@", runDistance / runTime, "m_per_s".localized)
+        case 2:
+            return String(format: "%.1f %@", runDistance / runTime * 3.6, "km_per_h".localized)
+        default:
             let paceSeconds = runTime / runDistance * 1000
             return String(format: "%d:%02d%@", Int(paceSeconds) / 60, Int(paceSeconds) % 60, "/km".localized)
-        } else {
-            let speed = runDistance / runTime
-            return String(format: "%.2f %@", speed, "m_per_s".localized)
         }
     }
 

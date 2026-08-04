@@ -14,11 +14,11 @@ struct LanguageSettingsView: View {
                         HStack(spacing: 14) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 10)
-                                    .fill((localization.currentLanguage == code ? Color.blue : Color.secondary).opacity(0.14))
+                                    .fill((localization.currentLanguage == code ? DS.Colors.paceRun : Color.secondary).opacity(0.14))
                                     .frame(width: 38, height: 38)
                                 Image(systemName: localization.currentLanguage == code ? "checkmark.circle.fill" : "globe")
                                     .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(localization.currentLanguage == code ? .blue : .secondary)
+                                    .foregroundStyle(localization.currentLanguage == code ? DS.Colors.paceRun : .secondary)
                             }
 
                             Text(key.localized)
@@ -30,7 +30,7 @@ struct LanguageSettingsView: View {
                             if localization.currentLanguage == code {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(DS.Colors.paceRun)
                             }
                         }
                         .frame(maxWidth: .infinity, minHeight: 52)
@@ -65,6 +65,8 @@ struct LanguageSettingsView: View {
         settings.language = language
         storage.saveSettings(settings)
         localization.setLanguage(language)
+        // Sync language to Watch
+        PhoneConnectivityManager.shared.syncLanguageToWatch(language)
     }
 }
 

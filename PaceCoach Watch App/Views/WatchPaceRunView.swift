@@ -4,10 +4,12 @@ import HealthKit
 /// Pace Run training view for watchOS.
 /// Runs a single group at a time with haptic feedback.
 struct WatchPaceRunView: View {
+    @Environment(\.scenePhase) private var scenePhase
     let plan: SavedPlan
     @Binding var isPresented: Bool
 
     @State private var training: PaceRunTraining?
+    @State private var hasInitialized = false
     @State private var currentGroupIndex = 0
     @State private var currentSegment = 0
     @State private var currentSet = 0
@@ -18,6 +20,8 @@ struct WatchPaceRunView: View {
     @State private var isCompleted = false
     @State private var showStopAlert = false
     @State private var elapsedTotal: Double = 0
+    @State private var workoutEnded = false
+    @State private var lastTickUptime: TimeInterval = 0
 
     @State private var timer: Timer?
     @State private var workoutSession: HKWorkoutSession?
@@ -25,6 +29,8 @@ struct WatchPaceRunView: View {
 
     private let haptic = WatchHapticManager.shared
     private let healthStore = HKHealthStore()
+    private let trainingTickInterval: TimeInterval = 0.1
+    private let maxStateTransitionsPerTick = 128
 
     enum TrainingPhase {
         case countdown
@@ -51,7 +57,16 @@ struct WatchPaceRunView: View {
             Button("watch_cancel".localized, role: .cancel) {}
         }
         .onAppear { setup() }
-        .onDisappear { cleanup() }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                handleSceneDidBecomeActive()
+            }
+        }
+        .onDisappear {
+            if isCompleted || !isPresented {
+                cleanup()
+            }
+        }
     }
 
     // MARK: - Countdown
@@ -62,7 +77,9 @@ struct WatchPaceRunView: View {
             Text("\(countdownValue)")
                 .font(WDS.Typo.countdownHero)
                 .foregroundColor(WDS.Colors.textPrimary)
-                .contentTransition(.numericText())
+                .contentTransition(.numericText(countsDown: true))
+                .monospacedDigit()
+                .animation(.easeOut(duration: 0.18), value: countdownValue)
             Spacer()
         }
     }
@@ -180,33 +197,40 @@ struct WatchPaceRunView: View {
     private var currentAccent: Color { WDS.Colors.paceRun }
 
     private func setup() {
+        guard !hasInitialized else { return }
         guard let decoded = try? JSONDecoder().decode(PaceRunTraining.self, from: plan.configData) else {
             isPresented = false
             return
         }
+        hasInitialized = true
+        workoutEnded = false
         training = decoded
-        countdownValue = decoded.countdownSeconds
+        countdownValue = max(1, decoded.countdownSeconds)
         startCountdown()
         startWorkoutSession()
     }
 
     private func startCountdown() {
         phase = .countdown
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+        timer?.invalidate()
+        haptic.playCountdownTick(count: countdownValue)
+        let countdownTimer = Timer(timeInterval: 1.0, repeats: true) { _ in
+            guard !isPaused else { return }
             if countdownValue > 1 {
                 countdownValue -= 1
-                if countdownValue <= 3 {
-                    haptic.playCountdownTick()
-                }
+                haptic.playCountdownTick(count: countdownValue)
             } else {
-                haptic.playCountdownFinal()
                 timer?.invalidate()
+                timer = nil
                 startRunning()
             }
         }
+        countdownTimer.tolerance = 0.05
+        RunLoop.main.add(countdownTimer, forMode: .common)
+        timer = countdownTimer
     }
 
-    private func startRunning() {
+    private func startRunning(startTimer: Bool = true) {
         guard let group = currentGroup else {
             completeTraining()
             return
@@ -215,31 +239,72 @@ struct WatchPaceRunView: View {
         currentSegment = 0
         currentSet = 0
         remainingTime = group.timeForSegment(0)
-        haptic.playTrainingStart()
-        startTrainingTimer()
+        haptic.playTrainingStart(sound: group.startSound)
+        if startTimer {
+            startTrainingTimer()
+        }
+    }
+
+    private func handleSceneDidBecomeActive() {
+        guard phase != .countdown, phase != .completed, !isPaused else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard lastTickUptime > 0 else {
+            lastTickUptime = now
+            return
+        }
+        let elapsed = max(0, now - lastTickUptime)
+        lastTickUptime = now
+        tick(elapsed: elapsed)
     }
 
     private func startTrainingTimer() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+        lastTickUptime = ProcessInfo.processInfo.systemUptime
+        let trainingTimer = Timer(timeInterval: trainingTickInterval, repeats: true) { _ in
             guard !isPaused else { return }
-            tick()
+            let now = ProcessInfo.processInfo.systemUptime
+            let elapsed = max(0, now - lastTickUptime)
+            lastTickUptime = now
+            tick(elapsed: elapsed)
         }
+        trainingTimer.tolerance = trainingTickInterval * 0.5
+        RunLoop.main.add(trainingTimer, forMode: .common)
+        timer = trainingTimer
     }
 
-    private func tick() {
-        guard let group = currentGroup else { return }
+    private func tick(elapsed: TimeInterval) {
+        guard elapsed > 0 else { return }
 
-        elapsedTotal += 1.0
-        remainingTime -= 1.0
+        let epsilon = 0.000_001
+        elapsedTotal += elapsed
+        var remainingElapsed = elapsed
+        var transitions = 0
 
-        // Pre-warning at 3, 2, 1 seconds
-        if remainingTime <= 3 && remainingTime > 0 {
-            haptic.playPreWarning()
-        }
+        while remainingElapsed > epsilon {
+            guard let group = currentGroup else { return }
+            transitions += 1
+            if transitions > maxStateTransitionsPerTick {
+                completeTraining(sound: group.endSound)
+                return
+            }
 
-        if remainingTime <= 0 {
-            advancePhase(group: group)
+            let currentRemaining = max(0, remainingTime)
+            if currentRemaining > remainingElapsed + epsilon {
+                let previous = currentRemaining
+                let next = currentRemaining - remainingElapsed
+                remainingTime = next
+                playRestCountdownCuesIfNeeded(group: group, from: previous, to: next)
+                remainingElapsed = 0
+            } else {
+                let previous = currentRemaining
+                remainingTime = 0
+                playRestCountdownCuesIfNeeded(group: group, from: previous, to: 0)
+                remainingElapsed -= currentRemaining
+                advancePhase(group: group)
+                if phase == .completed {
+                    return
+                }
+            }
         }
     }
 
@@ -251,7 +316,7 @@ struct WatchPaceRunView: View {
             if restAfter > 0 && currentSegment < group.segmentCount - 1 {
                 phase = .segmentRest
                 remainingTime = restAfter
-                haptic.playSegmentEnd()
+                haptic.playSegmentCue(sound: group.segmentSound)
                 return
             }
             advanceSegment(group: group)
@@ -264,7 +329,7 @@ struct WatchPaceRunView: View {
             currentSegment = 0
             phase = .running
             remainingTime = group.timeForSegment(0)
-            haptic.playTrainingStart()
+            haptic.playTrainingStart(sound: group.startSound)
 
         default:
             break
@@ -279,22 +344,22 @@ struct WatchPaceRunView: View {
             if currentSet + 1 < group.effectiveSetCount {
                 phase = .setRest
                 remainingTime = group.effectiveSetRest
-                haptic.playRepComplete()
+                haptic.playSegmentCue(sound: group.segmentSound)
             } else {
                 // Move to next group or complete
                 let nextGroup = currentGroupIndex + 1
                 if let training, nextGroup < training.groups.count {
                     currentGroupIndex = nextGroup
-                    startRunning()
+                    startRunning(startTimer: false)
                 } else {
-                    completeTraining()
+                    completeTraining(sound: group.endSound)
                 }
             }
         } else {
             currentSegment = nextSegment
             phase = .running
             remainingTime = group.timeForSegment(nextSegment)
-            haptic.playSegmentEnd()
+            haptic.playSegmentCue(sound: group.segmentSound)
         }
     }
 
@@ -302,8 +367,11 @@ struct WatchPaceRunView: View {
         isPaused.toggle()
         if isPaused {
             haptic.playPause()
+            workoutSession?.pause()
         } else {
             haptic.playResume()
+            workoutSession?.resume()
+            lastTickUptime = ProcessInfo.processInfo.systemUptime
         }
     }
 
@@ -313,11 +381,11 @@ struct WatchPaceRunView: View {
         isPresented = false
     }
 
-    private func completeTraining() {
+    private func completeTraining(sound: SoundType = .whistleStandard) {
         phase = .completed
         isCompleted = true
         timer?.invalidate()
-        haptic.playTrainingComplete()
+        haptic.playTrainingComplete(sound: sound)
         saveRecord(completed: true)
         endWorkoutSession()
     }
@@ -348,6 +416,8 @@ struct WatchPaceRunView: View {
     }
 
     private func endWorkoutSession() {
+        guard !workoutEnded else { return }
+        workoutEnded = true
         workoutSession?.end()
         workoutBuilder?.endCollection(withEnd: Date()) { _, _ in
             self.workoutBuilder?.finishWorkout { _, _ in }
@@ -381,5 +451,17 @@ struct WatchPaceRunView: View {
         let m = s / 60
         let sec = s % 60
         return String(format: "%d:%02d", m, sec)
+    }
+
+    private func playRestCountdownCuesIfNeeded(group: PaceRunGroup, from previous: Double, to current: Double) {
+        guard phase == .segmentRest || phase == .setRest else { return }
+        let lead = max(1, group.countdownSeconds)
+        let upper = Int(floor(previous))
+        let lower = Int(floor(current))
+        guard lower < upper else { return }
+
+        for sec in stride(from: upper, to: lower, by: -1) where sec <= lead && sec >= 1 {
+            haptic.playPreWarning(secondsLeft: sec)
+        }
     }
 }

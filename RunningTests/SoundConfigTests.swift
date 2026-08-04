@@ -12,7 +12,9 @@ final class SoundConfigTests: XCTestCase {
         XCTAssertEqual(SoundType.whistleQixinlu.displayNameKey, "sound_whistle_qixinlu")
     }
 
-    func testDefaultRunStartSoundUsesProfessionalWhistle() {
-        XCTAssertEqual(SoundConfig().runStartSound, .whistleStandard)
+    func testDefaultSoundConfigValues() {
+        let config = SoundConfig()
+        XCTAssertEqual(config.volume, 1.0)
+        XCTAssertTrue(config.vibrationEnabled)
     }
 }

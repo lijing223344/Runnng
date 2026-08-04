@@ -1,51 +1,63 @@
 import WatchKit
 
-/// Haptic feedback manager for watchOS.
-/// Maps training events to appropriate Watch haptic patterns.
+/// Haptic + Sound feedback manager for watchOS.
+/// Maps training events to appropriate Watch haptic patterns and audio cues.
+/// Respects vibration preference synced from iPhone.
 class WatchHapticManager {
     static let shared = WatchHapticManager()
 
+    private let vibrationKey = "watch_vibration_enabled"
+    private let sound = WatchSoundManager.shared
+
+    var isEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: vibrationKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: vibrationKey) }
+    }
+
     private init() {}
+
+    private func play(_ type: WKHapticType) {
+        guard isEnabled else { return }
+        WKInterfaceDevice.current().play(type)
+    }
 
     // MARK: - Training Events
 
-    func playCountdownTick() {
-        WKInterfaceDevice.current().play(.click)
+    func playCountdownTick(count: Int) {
+        play(.click)
+        sound.playCountdown(count)
     }
 
     func playCountdownFinal() {
-        WKInterfaceDevice.current().play(.start)
+        play(.start)
+        sound.playCountdown(1, whistleOnLast: true)
     }
 
-    func playTrainingStart() {
-        WKInterfaceDevice.current().play(.start)
+    func playTrainingStart(sound type: SoundType) {
+        play(.start)
+        sound.playSound(type)
     }
 
-    func playSegmentEnd() {
-        WKInterfaceDevice.current().play(.directionUp)
+    func playSegmentCue(sound type: SoundType) {
+        play(.directionUp)
+        sound.playSound(type)
     }
 
-    func playRestStart() {
-        WKInterfaceDevice.current().play(.stop)
+    func playRestStart(sound type: SoundType) {
+        play(.stop)
+        sound.playSound(type)
     }
 
-    func playRepComplete() {
-        WKInterfaceDevice.current().play(.directionUp)
+    func playTrainingComplete(sound type: SoundType) {
+        play(.success)
+        sound.playSound(type)
     }
 
-    func playTrainingComplete() {
-        WKInterfaceDevice.current().play(.success)
-    }
+    func playPause() { play(.click) }
+    func playResume() { play(.start) }
 
-    func playPause() {
-        WKInterfaceDevice.current().play(.click)
-    }
-
-    func playResume() {
-        WKInterfaceDevice.current().play(.start)
-    }
-
-    func playPreWarning() {
-        WKInterfaceDevice.current().play(.click)
+    func playPreWarning(secondsLeft: Int = 3) {
+        play(.click)
+        sound.playPreWarning(secondsLeft: secondsLeft)
     }
 }

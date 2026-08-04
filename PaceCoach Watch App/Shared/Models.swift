@@ -1,4 +1,26 @@
+// ⚠️ Mirror of Running/Models/Models.swift — keep in sync when modifying data models.
 import Foundation
+
+// MARK: - SoundConfig
+struct SoundConfig: Codable {
+    var volume: Float
+    var vibrationEnabled: Bool
+
+    init(volume: Float = 1.0, vibrationEnabled: Bool = true) {
+        self.volume = volume
+        self.vibrationEnabled = vibrationEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case volume, vibrationEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.volume = try c.decodeIfPresent(Float.self, forKey: .volume) ?? 1.0
+        self.vibrationEnabled = try c.decodeIfPresent(Bool.self, forKey: .vibrationEnabled) ?? true
+    }
+}
 
 enum TrainingType: String, Codable, CaseIterable {
     case paceRun = "pace_run"
@@ -70,7 +92,7 @@ struct PaceRunGroup: Codable, Identifiable {
 
     init(
         id: UUID = UUID(),
-        name: String = PaceRunGroup.defaultName,
+        name: String = "default_group_name".localized,
         colorHex: String = "#FF5733",
         totalDistance: Int = 800,
         segmentDistance: Int = 50,
@@ -322,7 +344,7 @@ struct IntervalGroup: Codable, Identifiable {
 
     init(
         id: UUID = UUID(),
-        name: String = IntervalGroup.defaultName,
+        name: String = "default_group_name".localized,
         colorHex: String = "#FF5733",
         runDistance: Int = 100,
         runTime: Int = 15,
@@ -448,66 +470,15 @@ extension IntervalTraining {
         Double(max(0, countdownSeconds)) + (groups.map { $0.totalPlannedDuration() }.max() ?? 0)
     }
 }
-
-// MARK: - Sound Configuration
-
-struct SoundConfig: Codable {
-    var volume: Float
-    var countdownSound: SoundType
-    var runStartSound: SoundType
-    var restStartSound: SoundType
-    var stageCompleteSound: SoundType
-    var trainingCompleteSound: SoundType
-    var vibrationEnabled: Bool
-
-    init(
-        volume: Float = 1.0,
-        countdownSound: SoundType = .whistleShort,
-        runStartSound: SoundType = .whistleStandard,
-        restStartSound: SoundType = .whistleShort,
-        stageCompleteSound: SoundType = .whistleShort,
-        trainingCompleteSound: SoundType = .whistleShort,
-        vibrationEnabled: Bool = true
-    ) {
-        self.volume = volume
-        self.countdownSound = countdownSound
-        self.runStartSound = runStartSound
-        self.restStartSound = restStartSound
-        self.stageCompleteSound = stageCompleteSound
-        self.trainingCompleteSound = trainingCompleteSound
-        self.vibrationEnabled = vibrationEnabled
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case volume
-        case countdownSound
-        case runStartSound
-        case restStartSound
-        case stageCompleteSound
-        case trainingCompleteSound
-        case vibrationEnabled
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.volume = try c.decodeIfPresent(Float.self, forKey: .volume) ?? 1.0
-        self.countdownSound = try c.decodeIfPresent(SoundType.self, forKey: .countdownSound) ?? .whistleShort
-        self.runStartSound = try c.decodeIfPresent(SoundType.self, forKey: .runStartSound) ?? .whistleStandard
-        self.restStartSound = try c.decodeIfPresent(SoundType.self, forKey: .restStartSound) ?? .whistleShort
-        self.stageCompleteSound = try c.decodeIfPresent(SoundType.self, forKey: .stageCompleteSound) ?? .whistleShort
-        self.trainingCompleteSound = try c.decodeIfPresent(SoundType.self, forKey: .trainingCompleteSound) ?? .whistleShort
-        self.vibrationEnabled = try c.decodeIfPresent(Bool.self, forKey: .vibrationEnabled) ?? true
-    }
-}
-
 // MARK: - User Settings
 
+/// Speed display unit: 0 = m/s, 1 = min/km, 2 = km/h
 struct UserSettings: Codable {
-    var userId: String; var language: String; var soundConfig: SoundConfig; var countdownSeconds: Int; var autoConnectBluetooth: Bool; var speedUnitMps: Bool
-    init(userId: String = "", language: String = "system", soundConfig: SoundConfig = SoundConfig(), countdownSeconds: Int = 3, autoConnectBluetooth: Bool = true, speedUnitMps: Bool = true) {
-        self.userId = userId; self.language = language; self.soundConfig = soundConfig; self.countdownSeconds = countdownSeconds; self.autoConnectBluetooth = autoConnectBluetooth; self.speedUnitMps = speedUnitMps
+    var userId: String; var language: String; var soundConfig: SoundConfig; var countdownSeconds: Int; var autoConnectBluetooth: Bool; var speedUnit: Int
+    init(userId: String = "", language: String = "system", soundConfig: SoundConfig = SoundConfig(), countdownSeconds: Int = 3, autoConnectBluetooth: Bool = true, speedUnit: Int = 0) {
+        self.userId = userId; self.language = language; self.soundConfig = soundConfig; self.countdownSeconds = countdownSeconds; self.autoConnectBluetooth = autoConnectBluetooth; self.speedUnit = speedUnit
     }
-    private enum CodingKeys: String, CodingKey { case userId, language, soundConfig, countdownSeconds, autoConnectBluetooth, speedUnitMps }
+    private enum CodingKeys: String, CodingKey { case userId, language, soundConfig, countdownSeconds, autoConnectBluetooth, speedUnit, speedUnitMps }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.userId = try c.decodeIfPresent(String.self, forKey: .userId) ?? ""
@@ -515,7 +486,22 @@ struct UserSettings: Codable {
         self.soundConfig = try c.decodeIfPresent(SoundConfig.self, forKey: .soundConfig) ?? SoundConfig()
         self.countdownSeconds = try c.decodeIfPresent(Int.self, forKey: .countdownSeconds) ?? 3
         self.autoConnectBluetooth = try c.decodeIfPresent(Bool.self, forKey: .autoConnectBluetooth) ?? true
-        self.speedUnitMps = try c.decodeIfPresent(Bool.self, forKey: .speedUnitMps) ?? true
+        if let unit = try c.decodeIfPresent(Int.self, forKey: .speedUnit) {
+            self.speedUnit = unit
+        } else if let mps = try c.decodeIfPresent(Bool.self, forKey: .speedUnitMps) {
+            self.speedUnit = mps ? 0 : 1
+        } else {
+            self.speedUnit = 0
+        }
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(userId, forKey: .userId)
+        try c.encode(language, forKey: .language)
+        try c.encode(soundConfig, forKey: .soundConfig)
+        try c.encode(countdownSeconds, forKey: .countdownSeconds)
+        try c.encode(autoConnectBluetooth, forKey: .autoConnectBluetooth)
+        try c.encode(speedUnit, forKey: .speedUnit)
     }
 }
 

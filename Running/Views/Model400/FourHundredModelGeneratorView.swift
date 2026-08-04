@@ -173,8 +173,8 @@ struct FourHundredModelGeneratorView: View {
 
                     HStack {
                         Text("model_400_intensity_custom".localized)
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(DS.Colors.textSecondary)
                         Spacer()
                         HStack(spacing: 4) {
                             FloatingTextInputField(
@@ -189,12 +189,19 @@ struct FourHundredModelGeneratorView: View {
                             )
                             Text("%")
                                 .font(.system(size: 14))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DS.Colors.textSecondary)
+                            Image(systemName: "square.and.pencil")
+                                .font(.system(size: 12))
+                                .foregroundStyle(DS.Colors.textTertiary)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(DS.Colors.field)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                        )
                     }
 
                     Text("model_400_intensity_hint".localized)

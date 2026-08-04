@@ -175,6 +175,7 @@
 "current_pace" = "Pace";
 "m_per_s" = "m/s";
 "min_per_km" = "/km";
+"km_per_h" = "km/h";
 "set_rest_label" = "Between-set Rest";
 "training_tag_model" = "MODEL";
 "model_400_title" = "400m Model";

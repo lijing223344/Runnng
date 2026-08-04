@@ -14,6 +14,8 @@ struct WatchTrainingLaunchView: View {
                 // Start button
                 Button {
                     isTraining = true
+                    // Notify iPhone that this plan was used
+                    WatchConnectivityManager.shared.notifyPlanUsed(planId: plan.id)
                 } label: {
                     Label("watch_start".localized, systemImage: "play.fill")
                         .font(WDS.Typo.cardTitle)

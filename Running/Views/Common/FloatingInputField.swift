@@ -1,6 +1,53 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Auto-focus UITextField wrapper
+
+/// A UITextField wrapped for SwiftUI that calls becomeFirstResponder immediately
+/// on appearance, bypassing SwiftUI's @FocusState timing issues with sheets.
+private struct AutoFocusTextField: UIViewRepresentable {
+    let placeholder: String
+    let keyboardType: UIKeyboardType
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UITextField {
+        let tf = UITextField()
+        tf.placeholder = placeholder
+        tf.keyboardType = keyboardType
+        tf.font = .systemFont(ofSize: 20, weight: .semibold)
+        tf.textColor = .white
+        tf.tintColor = .white
+        tf.returnKeyType = .done
+        tf.delegate = context.coordinator
+        tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
+        // Become first responder on next run loop — fires before sheet animation ends
+        DispatchQueue.main.async { tf.becomeFirstResponder() }
+        return tf
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        if uiView.text != text { uiView.text = text }
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: AutoFocusTextField
+        init(_ parent: AutoFocusTextField) { self.parent = parent }
+
+        @objc func textChanged(_ sender: UITextField) {
+            parent.text = sender.text ?? ""
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            textField.resignFirstResponder()
+            return true
+        }
+    }
+}
+
+// MARK: - Editor Sheet
+
 private struct FloatingInputEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -12,7 +59,6 @@ private struct FloatingInputEditorSheet: View {
     let onConfirm: (String) -> Void
 
     @Binding var draft: String
-    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 12) {
@@ -48,11 +94,13 @@ private struct FloatingInputEditorSheet: View {
             }
 
             HStack(spacing: 8) {
-                TextField(placeholder, text: $draft)
-                    .keyboardType(keyboardType)
-                    .font(.system(size: 20, weight: .semibold))
-                    .focused($focused)
-                    .accessibilityIdentifier("floating_input_textfield")
+                AutoFocusTextField(
+                    placeholder: placeholder,
+                    keyboardType: keyboardType,
+                    text: $draft
+                )
+                .frame(height: 32)
+                .accessibilityIdentifier("floating_input_textfield")
                 if !draft.isEmpty {
                     Button {
                         draft = ""
@@ -73,23 +121,10 @@ private struct FloatingInputEditorSheet: View {
                     .stroke(DS.Colors.border, lineWidth: 1)
             )
             .padding(.horizontal, 20)
-            .onAppear {
-                draft = ""
-                DispatchQueue.main.async {
-                    focused = true
-                }
-            }
+            .onAppear { draft = "" }
         }
         .padding(.bottom, 8)
         .presentationDetents([.height(220)])
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("done".localized) {
-                    focused = false
-                }
-            }
-        }
     }
 }
 
@@ -119,7 +154,7 @@ struct FloatingTextInputField: View {
                 .padding(.horizontal, 2)
                 .frame(width: fieldWidth, alignment: .leading)
                 .frame(maxWidth: fieldWidth == nil ? .infinity : nil, alignment: .leading)
-                .frame(minHeight: 44, alignment: .leading)
+                .frame(minHeight: 34, alignment: .leading)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -167,7 +202,7 @@ struct FloatingIntInputField: View {
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 2)
                 .frame(width: width, alignment: .trailing)
-                .frame(minHeight: 44, alignment: .trailing)
+                .frame(minHeight: 34, alignment: .trailing)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -224,7 +259,7 @@ struct FloatingDoubleInputField: View {
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 2)
                 .frame(width: width, alignment: .trailing)
-                .frame(minHeight: 44, alignment: .trailing)
+                .frame(minHeight: 34, alignment: .trailing)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

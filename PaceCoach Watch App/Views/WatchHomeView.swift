@@ -31,6 +31,9 @@ struct WatchHomeView: View {
                 }
             }
         }
+        .refreshable {
+            connectivity.requestPlansSync()
+        }
         .navigationDestination(for: UUID.self) { planId in
             if let plan = connectivity.receivedPlans.first(where: { $0.id == planId }) {
                 WatchTrainingLaunchView(plan: plan)

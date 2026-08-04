@@ -4,6 +4,7 @@ struct SettingsView: View {
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var storage = StorageManager.shared
     @ObservedObject private var cloudSync = CloudSyncManager.shared
+    private let appVersion = AppVersionProvider.displayString()
     @State private var showLanguageSheet = false
     @State private var showLoginSheet = false
     @State private var showSoundSettings = false
@@ -168,7 +169,7 @@ struct SettingsView: View {
             HStack {
                 row(icon: "info.circle", tint: DS.Colors.warning, title: "version".localized, showChevron: false)
                 Spacer()
-                Text("1.0.0")
+                Text(appVersion)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(DS.Colors.textTertiary)
             }

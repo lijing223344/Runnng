@@ -95,11 +95,13 @@ struct IntervalTrainingView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
                 ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
+                    if index < groupStates.count {
                     GroupTrainingCard(
                         group: group,
                         state: groupStates[index],
                         onPauseToggle: { togglePauseGroup(index) }
                     )
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -180,7 +182,7 @@ struct IntervalTrainingView: View {
             } else {
                 self.timer?.invalidate()
                 self.isCountdown = false
-                self.soundManager.playConfiguredRunStartSound()
+                self.soundManager.playSound(self.training.groups.first?.startSound ?? .whistleStandard)
                 self.startAllGroups()
             }
         }
@@ -270,7 +272,7 @@ struct IntervalTrainingView: View {
                                 let nextRepIndex = max(0, groupStates[index].currentRepetition - 1)
                                 groupStates[index].remainingTime = max(0, group.runTimeForRep(nextRepIndex))
                                 groupStates[index].isSetRest = false
-                                soundManager.playStandardWhistle()
+                                soundManager.playSound(group.startSound)
                             }
                         } else {
                             // Set completed
@@ -287,7 +289,7 @@ struct IntervalTrainingView: View {
                                     groupStates[index].phase = .running
                                     groupStates[index].remainingTime = max(0, group.runTimeForRep(0))
                                     groupStates[index].isSetRest = false
-                                    soundManager.playStandardWhistle()
+                                    soundManager.playSound(group.startSound)
                                 }
                             } else {
                                 groupStates[index].isCompleted = true
@@ -303,7 +305,7 @@ struct IntervalTrainingView: View {
                                 groupStates[index].phase = .running
                                 groupStates[index].remainingTime = max(0, group.runTimeForRep(0))
                                 groupStates[index].isSetRest = false
-                                soundManager.playStandardWhistle()
+                                soundManager.playSound(group.startSound)
                             } else {
                                 groupStates[index].isCompleted = true
                                 groupStates[index].phase = .completed
@@ -315,7 +317,7 @@ struct IntervalTrainingView: View {
                                 groupStates[index].phase = .running
                                 let nextRepIndex = max(0, groupStates[index].currentRepetition - 1)
                                 groupStates[index].remainingTime = max(0, group.runTimeForRep(nextRepIndex))
-                                soundManager.playStandardWhistle()
+                                soundManager.playSound(group.startSound)
                             } else {
                                 groupStates[index].isCompleted = true
                                 groupStates[index].phase = .completed
@@ -345,7 +347,10 @@ struct IntervalTrainingView: View {
         }
     }
 
-    private func togglePauseGroup(_ index: Int) { groupStates[index].isPaused.toggle() }
+    private func togglePauseGroup(_ index: Int) {
+        guard index >= 0, index < groupStates.count else { return }
+        groupStates[index].isPaused.toggle()
+    }
     private func toggleGlobalPause() { isGlobalPaused.toggle() }
     private func stopTraining() {
         timer?.invalidate()
@@ -382,7 +387,7 @@ struct GroupTrainingCard: View {
     let group: IntervalGroup
     let state: GroupTrainingState
     let onPauseToggle: () -> Void
-    @State private var showMps: Bool = true
+    @State private var speedUnit: Int = 0  // 0=m/s, 1=min/km, 2=km/h
 
     private var groupColor: Color { Color(hex: group.colorHex) ?? .orange }
     private var totalReps: Int { max(1, group.effectiveRepetitions) }
@@ -459,14 +464,20 @@ struct GroupTrainingCard: View {
         let dist = Double(group.runDistance)
         let time = group.runTimeForRep(repIndex)
         guard dist > 0, time > 0 else { return "--" }
-        if showMps {
-            let mps = dist / time
-            return String(format: "%.2f", mps)
-        } else {
+        switch speedUnit {
+        case 0: return String(format: "%.2f", dist / time)
+        case 2: return String(format: "%.1f", dist / time * 3.6)
+        default:
             let paceSeconds = time / dist * 1000
-            let min = Int(paceSeconds) / 60
-            let sec = Int(paceSeconds) % 60
-            return String(format: "%d:%02d", min, sec)
+            return String(format: "%d:%02d", Int(paceSeconds) / 60, Int(paceSeconds) % 60)
+        }
+    }
+
+    private var speedUnitLabel: String {
+        switch speedUnit {
+        case 0: return "m_per_s".localized
+        case 2: return "km_per_h".localized
+        default: return "/km".localized
         }
     }
 
@@ -479,7 +490,7 @@ struct GroupTrainingCard: View {
             }
         }
         .dsCard(radius: DS.Radius.lg, padding: 0)
-        .onAppear { showMps = StorageManager.shared.loadSettings().speedUnitMps }
+        .onAppear { speedUnit = StorageManager.shared.loadSettings().speedUnit }
     }
 
     // MARK: Completed
@@ -595,16 +606,16 @@ struct GroupTrainingCard: View {
                         .font(DS.Typo.timerSmall)
                         .foregroundStyle(.white)
                         .monospacedDigit()
-                    Text(showMps ? "m_per_s".localized : "/km".localized)
+                    Text(speedUnitLabel)
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
                 }
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    showMps.toggle()
+                    speedUnit = (speedUnit + 1) % 3
                     var settings = StorageManager.shared.loadSettings()
-                    settings.speedUnitMps = showMps
+                    settings.speedUnit = speedUnit
                     StorageManager.shared.saveSettings(settings)
                 }
             }

@@ -3,10 +3,12 @@ import HealthKit
 
 /// Interval training view for watchOS.
 struct WatchIntervalView: View {
+    @Environment(\.scenePhase) private var scenePhase
     let plan: SavedPlan
     @Binding var isPresented: Bool
 
     @State private var training: IntervalTraining?
+    @State private var hasInitialized = false
     @State private var currentGroupIndex = 0
     @State private var currentRep = 0
     @State private var currentSet = 0
@@ -17,6 +19,8 @@ struct WatchIntervalView: View {
     @State private var isCompleted = false
     @State private var showStopAlert = false
     @State private var elapsedTotal: Double = 0
+    @State private var workoutEnded = false
+    @State private var lastTickUptime: TimeInterval = 0
 
     @State private var timer: Timer?
     @State private var workoutSession: HKWorkoutSession?
@@ -24,6 +28,8 @@ struct WatchIntervalView: View {
 
     private let haptic = WatchHapticManager.shared
     private let healthStore = HKHealthStore()
+    private let trainingTickInterval: TimeInterval = 0.1
+    private let maxStateTransitionsPerTick = 128
 
     enum TrainingPhase {
         case countdown
@@ -50,7 +56,16 @@ struct WatchIntervalView: View {
             Button("watch_cancel".localized, role: .cancel) {}
         }
         .onAppear { setup() }
-        .onDisappear { cleanup() }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                handleSceneDidBecomeActive()
+            }
+        }
+        .onDisappear {
+            if isCompleted || !isPresented {
+                cleanup()
+            }
+        }
     }
 
     // MARK: - Countdown
@@ -61,7 +76,9 @@ struct WatchIntervalView: View {
             Text("\(countdownValue)")
                 .font(WDS.Typo.countdownHero)
                 .foregroundColor(WDS.Colors.textPrimary)
-                .contentTransition(.numericText())
+                .contentTransition(.numericText(countsDown: true))
+                .monospacedDigit()
+                .animation(.easeOut(duration: 0.18), value: countdownValue)
             Spacer()
         }
     }
@@ -181,33 +198,40 @@ struct WatchIntervalView: View {
     }
 
     private func setup() {
+        guard !hasInitialized else { return }
         guard let decoded = try? JSONDecoder().decode(IntervalTraining.self, from: plan.configData) else {
             isPresented = false
             return
         }
+        hasInitialized = true
+        workoutEnded = false
         training = decoded
-        countdownValue = decoded.countdownSeconds
+        countdownValue = max(1, decoded.countdownSeconds)
         startCountdown()
         startWorkoutSession()
     }
 
     private func startCountdown() {
         phase = .countdown
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+        timer?.invalidate()
+        haptic.playCountdownTick(count: countdownValue)
+        let countdownTimer = Timer(timeInterval: 1.0, repeats: true) { _ in
+            guard !isPaused else { return }
             if countdownValue > 1 {
                 countdownValue -= 1
-                if countdownValue <= 3 {
-                    haptic.playCountdownTick()
-                }
+                haptic.playCountdownTick(count: countdownValue)
             } else {
-                haptic.playCountdownFinal()
                 timer?.invalidate()
+                timer = nil
                 startRunningPhase()
             }
         }
+        countdownTimer.tolerance = 0.05
+        RunLoop.main.add(countdownTimer, forMode: .common)
+        timer = countdownTimer
     }
 
-    private func startRunningPhase() {
+    private func startRunningPhase(startTimer: Bool = true) {
         guard let group = currentGroup else {
             completeTraining()
             return
@@ -216,31 +240,72 @@ struct WatchIntervalView: View {
         currentRep = 0
         currentSet = 0
         remainingTime = group.runTimeForRep(0)
-        haptic.playTrainingStart()
-        startTrainingTimer()
+        haptic.playTrainingStart(sound: group.startSound)
+        if startTimer {
+            startTrainingTimer()
+        }
+    }
+
+    private func handleSceneDidBecomeActive() {
+        guard phase != .countdown, phase != .completed, !isPaused else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard lastTickUptime > 0 else {
+            lastTickUptime = now
+            return
+        }
+        let elapsed = max(0, now - lastTickUptime)
+        lastTickUptime = now
+        tick(elapsed: elapsed)
     }
 
     private func startTrainingTimer() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+        lastTickUptime = ProcessInfo.processInfo.systemUptime
+        let trainingTimer = Timer(timeInterval: trainingTickInterval, repeats: true) { _ in
             guard !isPaused else { return }
-            tick()
+            let now = ProcessInfo.processInfo.systemUptime
+            let elapsed = max(0, now - lastTickUptime)
+            lastTickUptime = now
+            tick(elapsed: elapsed)
         }
+        trainingTimer.tolerance = trainingTickInterval * 0.5
+        RunLoop.main.add(trainingTimer, forMode: .common)
+        timer = trainingTimer
     }
 
-    private func tick() {
-        guard let group = currentGroup else { return }
+    private func tick(elapsed: TimeInterval) {
+        guard elapsed > 0 else { return }
 
-        elapsedTotal += 1.0
-        remainingTime -= 1.0
+        let epsilon = 0.000_001
+        elapsedTotal += elapsed
+        var remainingElapsed = elapsed
+        var transitions = 0
 
-        // Pre-warning
-        if remainingTime <= 3 && remainingTime > 0 {
-            haptic.playPreWarning()
-        }
+        while remainingElapsed > epsilon {
+            guard let group = currentGroup else { return }
+            transitions += 1
+            if transitions > maxStateTransitionsPerTick {
+                completeTraining(sound: group.endSound)
+                return
+            }
 
-        if remainingTime <= 0 {
-            advancePhase(group: group)
+            let currentRemaining = max(0, remainingTime)
+            if currentRemaining > remainingElapsed + epsilon {
+                let previous = currentRemaining
+                let next = currentRemaining - remainingElapsed
+                remainingTime = next
+                playRestCountdownCuesIfNeeded(group: group, from: previous, to: next)
+                remainingElapsed = 0
+            } else {
+                let previous = currentRemaining
+                remainingTime = 0
+                playRestCountdownCuesIfNeeded(group: group, from: previous, to: 0)
+                remainingElapsed -= currentRemaining
+                advancePhase(group: group)
+                if phase == .completed {
+                    return
+                }
+            }
         }
     }
 
@@ -253,17 +318,17 @@ struct WatchIntervalView: View {
 
             if isLastRep && isLastSet {
                 // Move to next group or complete
-                advanceGroup()
+                advanceGroup(from: group)
             } else if isLastRep {
                 // Set rest
                 phase = .setRest
                 remainingTime = group.effectiveSetRest
-                haptic.playRepComplete()
+                haptic.playRestStart(sound: group.restSound)
             } else {
                 // Regular rest between reps
                 phase = .resting
                 remainingTime = group.restTimeForRep(currentRep)
-                haptic.playRestStart()
+                haptic.playRestStart(sound: group.restSound)
             }
 
         case .resting:
@@ -271,7 +336,7 @@ struct WatchIntervalView: View {
             currentRep += 1
             phase = .running
             remainingTime = group.runTimeForRep(currentRep)
-            haptic.playTrainingStart()
+            haptic.playTrainingStart(sound: group.startSound)
 
         case .setRest:
             // After set rest, start next set
@@ -279,20 +344,20 @@ struct WatchIntervalView: View {
             currentRep = 0
             phase = .running
             remainingTime = group.runTimeForRep(0)
-            haptic.playTrainingStart()
+            haptic.playTrainingStart(sound: group.startSound)
 
         default:
             break
         }
     }
 
-    private func advanceGroup() {
+    private func advanceGroup(from group: IntervalGroup) {
         let nextGroup = currentGroupIndex + 1
         if let training, nextGroup < training.groups.count {
             currentGroupIndex = nextGroup
-            startRunningPhase()
+            startRunningPhase(startTimer: false)
         } else {
-            completeTraining()
+            completeTraining(sound: group.endSound)
         }
     }
 
@@ -300,8 +365,11 @@ struct WatchIntervalView: View {
         isPaused.toggle()
         if isPaused {
             haptic.playPause()
+            workoutSession?.pause()
         } else {
             haptic.playResume()
+            workoutSession?.resume()
+            lastTickUptime = ProcessInfo.processInfo.systemUptime
         }
     }
 
@@ -311,11 +379,11 @@ struct WatchIntervalView: View {
         isPresented = false
     }
 
-    private func completeTraining() {
+    private func completeTraining(sound: SoundType = .whistleStandard) {
         phase = .completed
         isCompleted = true
         timer?.invalidate()
-        haptic.playTrainingComplete()
+        haptic.playTrainingComplete(sound: sound)
         saveRecord(completed: true)
         endWorkoutSession()
     }
@@ -346,6 +414,8 @@ struct WatchIntervalView: View {
     }
 
     private func endWorkoutSession() {
+        guard !workoutEnded else { return }
+        workoutEnded = true
         workoutSession?.end()
         workoutBuilder?.endCollection(withEnd: Date()) { _, _ in
             self.workoutBuilder?.finishWorkout { _, _ in }
@@ -372,6 +442,8 @@ struct WatchIntervalView: View {
         let total: Double
         if phase == .running {
             total = group.runTimeForRep(currentRep)
+        } else if phase == .setRest {
+            total = group.effectiveSetRest
         } else {
             total = group.restTimeForRep(currentRep)
         }
@@ -384,5 +456,17 @@ struct WatchIntervalView: View {
         let m = s / 60
         let sec = s % 60
         return String(format: "%d:%02d", m, sec)
+    }
+
+    private func playRestCountdownCuesIfNeeded(group: IntervalGroup, from previous: Double, to current: Double) {
+        guard phase == .resting || phase == .setRest else { return }
+        let lead = group.restCountdownLeadSeconds
+        let upper = Int(floor(previous))
+        let lower = Int(floor(current))
+        guard lower < upper else { return }
+
+        for sec in stride(from: upper, to: lower, by: -1) where sec <= lead && sec >= 1 {
+            haptic.playPreWarning(secondsLeft: sec)
+        }
     }
 }

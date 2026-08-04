@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// Lightweight storage for Watch-local data.
 class WatchStorageManager: ObservableObject {

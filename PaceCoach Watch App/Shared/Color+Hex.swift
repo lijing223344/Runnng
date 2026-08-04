@@ -1,3 +1,4 @@
+// ⚠️ Mirror of Running/Utilities/Color+Hex.swift — keep in sync.
 import SwiftUI
 
 // MARK: - Color Extension for Hex
