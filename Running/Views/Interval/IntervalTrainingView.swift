@@ -75,21 +75,21 @@ struct IntervalTrainingView: View {
     private var countdownOverlay: some View {
         VStack(spacing: 16) {
             Spacer()
-            // Audit C1: give the blank countdown a plan context.
+            // Audit C1: plan context — name, status, scale, then the number.
             Text(training.name)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .padding(.horizontal, 32)
-            Text(String(format: "countdown_groups_hint".localized, training.groups.count))
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.55))
             Text("countdown_start".localized)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .tracking(2)
                 .textCase(.uppercase)
+            Text(String(format: "countdown_groups_hint".localized, training.groups.count))
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
             Text("\(countdownSeconds)")
                 .font(DS.Typo.countdownHero)
                 .foregroundStyle(DS.Colors.interval)

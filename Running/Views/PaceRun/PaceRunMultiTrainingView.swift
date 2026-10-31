@@ -76,21 +76,21 @@ struct PaceRunMultiTrainingView: View {
     private var countdownOverlay: some View {
         VStack(spacing: 16) {
             Spacer()
-            // Audit C1: give the blank countdown a plan context.
+            // Audit C1: plan context — name, status, scale, then the number.
             Text(training.name)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .padding(.horizontal, 32)
-            Text(String(format: "countdown_groups_hint".localized, training.groups.count))
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.55))
             Text("countdown_start".localized)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .tracking(2)
                 .textCase(.uppercase)
+            Text(String(format: "countdown_groups_hint".localized, training.groups.count))
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
 
             Text("\(countdownSeconds)")
                 .font(DS.Typo.countdownHero)
@@ -911,34 +911,76 @@ struct SegmentTrackView: View {
                 }
                 .stroke(Color.white.opacity(0.25), lineWidth: 1)
 
-                // Numerical Labels
-                ForEach(0...tickCount, id: \.self) { i in
-                    let isLast = i == tickCount
+                // Numerical Labels — indices pre-picked so clamped edge
+                // labels can never stack (e.g. "750米"/"800米" at the right edge).
+                ForEach(rulerLabelIndices(
+                    tickCount: tickCount,
+                    labelInterval: labelInterval,
+                    useCompact: useCompact,
+                    step: step,
+                    boundaryX: boundaryX,
+                    width: geo.size.width
+                ), id: \.self) { i in
                     let isFirst = i == 0
-                    let isInterval = i % labelInterval == 0
+                    let isLast = i == tickCount
 
-                    if isInterval || isLast {
-                        let distance = useCompact ?
-                            Int(round(Double(i) / Double(max(1, tickCount)) * Double(plannedDistance))) :
-                            distanceAtBoundary(i)
+                    let distance = useCompact ?
+                        Int(round(Double(i) / Double(max(1, tickCount)) * Double(plannedDistance))) :
+                        distanceAtBoundary(i)
 
-                        // Audit A4: clamp edge labels inside the track so the
-                        // first/last marker ("0米"/"800米") no longer overflow.
-                        let rawX = useCompact ? (CGFloat(i) * step) : boundaryX[max(0, min(i, boundaryX.count - 1))]
-                        let clampedX = min(max(rawX, 22), geo.size.width - 22)
+                    // Audit A4: clamp edge labels inside the track so the
+                    // first/last marker ("0米"/"800米") no longer overflow.
+                    let rawX = useCompact ? (CGFloat(i) * step) : boundaryX[max(0, min(i, boundaryX.count - 1))]
+                    let clampedX = min(max(rawX, 22), geo.size.width - 22)
 
-                        Text("\(distance)\("unit_meter_short".localized)")
-                            .font(.system(size: 9, weight: .black, design: .monospaced))
-                            .foregroundStyle(isFirst || isLast ? .white : .white.opacity(0.5))
-                            .frame(width: 44) // Constant width to help centering
-                            .position(x: clampedX, y: 22)
-                    }
+                    Text("\(distance)\("unit_meter_short".localized)")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .foregroundStyle(isFirst || isLast ? .white : .white.opacity(0.5))
+                        .frame(width: 44) // Constant width to help centering
+                        .position(x: clampedX, y: 22)
                 }
             }
         }
         .frame(height: 32)
         .padding(.horizontal, 4)
         .padding(.top, 4)
+    }
+
+    /// Audit A4 review pass: picks which ruler labels to render. The first
+    /// and last markers are always kept; an intermediate label is skipped if
+    /// its clamped position would collide with the previously kept label; if
+    /// the final marker collides, it replaces the last kept candidate so the
+    /// right edge always shows the planned total distance.
+    private func rulerLabelIndices(
+        tickCount: Int,
+        labelInterval: Int,
+        useCompact: Bool,
+        step: CGFloat,
+        boundaryX: [CGFloat],
+        width: CGFloat
+    ) -> [Int] {
+        func clampedX(_ i: Int) -> CGFloat {
+            let raw = useCompact ? (CGFloat(i) * step) : boundaryX[max(0, min(i, boundaryX.count - 1))]
+            return min(max(raw, 22), width - 22)
+        }
+
+        let candidates = (0...tickCount).filter { $0 % labelInterval == 0 || $0 == tickCount }
+        guard let first = candidates.first, let last = candidates.last else { return [] }
+
+        var kept: [(index: Int, x: CGFloat)] = [(first, clampedX(first))]
+        for i in candidates.dropFirst() where i != last {
+            let x = clampedX(i)
+            if x - kept.last!.x >= 44 {
+                kept.append((i, x))
+            }
+        }
+        if last != kept.last!.index {
+            let x = clampedX(last)
+            if kept.count == 1 || x - kept[kept.count - 2].x >= 44 {
+                kept[kept.count - 1] = (last, x)
+            }
+        }
+        return kept.map(\.index)
     }
 
     private func slotBg(_ seg: Int) -> Color {

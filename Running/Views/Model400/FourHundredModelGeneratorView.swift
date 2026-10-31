@@ -62,6 +62,12 @@ struct FourHundredModelGeneratorView: View {
         }
         .background(TrainingPageBackground())
         .overlay(alignment: .bottom) { generatedBanner }
+        // Review pass: reserve room for the banner so the "生成计划" CTA stays
+        // reachable while the confirmation is on screen.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: showGeneratedBanner ? 84 : 0)
+                .animation(.easeInOut(duration: 0.18), value: showGeneratedBanner)
+        }
         .navigationTitle("model_400_title".localized)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(DS.Colors.bg, for: .navigationBar)

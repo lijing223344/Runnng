@@ -31,7 +31,7 @@
 "paused" = "Paused";
 "resting" = "Resting";
 "up_next_title" = "Up next";
-"countdown_groups_hint" = "%d groups starting";
+"countdown_groups_hint" = "%d groups";
 "up_next_segment" = "Next · Seg %d · %dm · %@";
 "up_next_rep" = "Next · Rep %d · %dm · %@";
 "up_next_set" = "Up next · Set %d of %d";

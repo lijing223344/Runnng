@@ -70,8 +70,12 @@ struct WatchTrainingLaunchView: View {
             let groups = training.groups.count
             let totalDist = training.groups.map(\.totalDistance).reduce(0, +)
             // Audit W4: runners care most about total duration before starting.
-            let totalTime = training.groups.reduce(0.0) {
-                $0 + $1.totalTime * Double(max(1, $1.effectiveSetCount))
+            // Review pass: include inter-set rest so multi-set estimates match
+            // what the timer will actually run.
+            let totalTime = training.groups.reduce(0.0) { acc, group in
+                let sets = max(1, group.effectiveSetCount)
+                let setRest = max(0, group.setRestTime ?? 0)
+                return acc + group.totalTime * Double(sets) + Double(sets - 1) * setRest
             }
             return "\(groups) \("groups_count".localized) | \(totalDist)m | \(totalTimeText(totalTime))"
         } else {

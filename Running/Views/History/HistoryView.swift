@@ -17,7 +17,7 @@ struct HistoryView: View {
                 Text("training_history".localized)
                     .font(.system(size: 32, weight: .bold))
                     .tracking(-1)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DS.Colors.textPrimary)
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     .padding(.bottom, 8)
