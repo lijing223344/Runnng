@@ -848,63 +848,21 @@ struct PaceRunGroupEditorView: View {
                     .padding(.bottom, 40)
                 }
                 .background(TrainingPageBackground())
+                .safeAreaInset(edge: .bottom) { editorBottomSaveBar }
                 .navigationTitle(isNew ? "add_plan".localized : "edit_group".localized)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button("cancel".localized) { dismiss() }
+                            .accessibilityIdentifier("pace_editor_cancel_button")
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("save".localized) {
-                            guard let selectedIntensity = normalizedIntensityPercent else { return }
-                            group.intensityPercent = selectedIntensity
-
-                            if useCustomSegments, let cs = group.customSegments, !cs.isEmpty {
-                                let scaledSegments = cs.map { segment in
-                                    var scaled = segment
-                                    let baseTime = min(
-                                        PacePlanLimits.maxTotalTimeSeconds,
-                                        max(PacePlanLimits.minSegmentTimeSeconds, segment.time)
-                                    )
-                                    let adjusted = TrainingIntensity.adjustedTime(
-                                        baseTimeAtHundredPercent: baseTime,
-                                        intensityPercent: selectedIntensity
-                                    ) ?? baseTime
-                                    scaled.time = min(
-                                        PacePlanLimits.maxTotalTimeSeconds,
-                                        max(PacePlanLimits.minSegmentTimeSeconds, adjusted)
-                                    )
-                                    return scaled
-                                }
-                                group.customSegments = scaledSegments
-                                group.totalTime = scaledSegments.reduce(0) { $0 + $1.time }
-                                group.segmentTime = group.totalTime / Double(max(1, scaledSegments.count))
-                            } else {
-                                let baseTotal = min(
-                                    PacePlanLimits.maxTotalTimeSeconds,
-                                    max(PacePlanLimits.minSegmentTimeSeconds, pickerTotalTime)
-                                )
-                                let adjustedTotal = TrainingIntensity.adjustedTime(
-                                    baseTimeAtHundredPercent: baseTotal,
-                                    intensityPercent: selectedIntensity
-                                ) ?? baseTotal
-                                group.totalTime = min(
-                                    PacePlanLimits.maxTotalTimeSeconds,
-                                    max(PacePlanLimits.minSegmentTimeSeconds, adjustedTotal)
-                                )
-                                group.customSegments = nil
-                                group.segmentTime = group.totalTime / Double(max(1, group.segmentCount))
-                            }
-                            onSave(normalizeGroupForSave(group))
-                            dismiss()
+                            performSave()
                         }
                         .fontWeight(.semibold)
-                        .disabled(
-                            normalizedIntensityPercent == nil ||
-                            (useCustomSegments
-                                ? (group.customSegments?.reduce(0.0) { $0 + $1.time } ?? 0) <= 0
-                                : pickerTotalTime <= 0)
-                        )
+                        .disabled(!canSave)
+                        .accessibilityIdentifier("pace_editor_save_button")
                     }
                 }
                 .onAppear {
@@ -913,6 +871,7 @@ struct PaceRunGroupEditorView: View {
                     intensityText = TrainingIntensity.displayText(group.intensityPercent)
                     speedUnit = StorageManager.shared.loadSettings().speedUnit
                 }
+                .accessibilityIdentifier("pace_group_editor")
                 .sheet(item: $editingField, onDismiss: {
                     segmentEditorFocused = false
                     editText = ""
@@ -921,6 +880,85 @@ struct PaceRunGroupEditorView: View {
                 }
             }
         }
+    }
+
+    private var canSave: Bool {
+        !(normalizedIntensityPercent == nil ||
+          (useCustomSegments
+              ? (group.customSegments?.reduce(0.0) { $0 + $1.time } ?? 0) <= 0
+              : pickerTotalTime <= 0))
+    }
+
+    private func performSave() {
+        guard let selectedIntensity = normalizedIntensityPercent else { return }
+        group.intensityPercent = selectedIntensity
+
+        if useCustomSegments, let cs = group.customSegments, !cs.isEmpty {
+            let scaledSegments = cs.map { segment in
+                var scaled = segment
+                let baseTime = min(
+                    PacePlanLimits.maxTotalTimeSeconds,
+                    max(PacePlanLimits.minSegmentTimeSeconds, segment.time)
+                )
+                let adjusted = TrainingIntensity.adjustedTime(
+                    baseTimeAtHundredPercent: baseTime,
+                    intensityPercent: selectedIntensity
+                ) ?? baseTime
+                scaled.time = min(
+                    PacePlanLimits.maxTotalTimeSeconds,
+                    max(PacePlanLimits.minSegmentTimeSeconds, adjusted)
+                )
+                return scaled
+            }
+            group.customSegments = scaledSegments
+            group.totalTime = scaledSegments.reduce(0) { $0 + $1.time }
+            group.segmentTime = group.totalTime / Double(max(1, scaledSegments.count))
+        } else {
+            let baseTotal = min(
+                PacePlanLimits.maxTotalTimeSeconds,
+                max(PacePlanLimits.minSegmentTimeSeconds, pickerTotalTime)
+            )
+            let adjustedTotal = TrainingIntensity.adjustedTime(
+                baseTimeAtHundredPercent: baseTotal,
+                intensityPercent: selectedIntensity
+            ) ?? baseTotal
+            group.totalTime = min(
+                PacePlanLimits.maxTotalTimeSeconds,
+                max(PacePlanLimits.minSegmentTimeSeconds, adjustedTotal)
+            )
+            group.customSegments = nil
+            group.segmentTime = group.totalTime / Double(max(1, group.segmentCount))
+        }
+        onSave(normalizeGroupForSave(group))
+        dismiss()
+    }
+
+    /// Bottom fixed save bar — save without scrolling back to top (audit A2).
+    private var editorBottomSaveBar: some View {
+        VStack(spacing: 0) {
+            LinearGradient(
+                colors: [DS.Colors.bg.opacity(0), DS.Colors.bg],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 14)
+            .allowsHitTesting(false)
+
+            Button(action: performSave) {
+                Label("save".localized, systemImage: "checkmark")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(canSave ? .white : DS.Colors.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .trainingPrimaryActionSurface(isEnabled: canSave)
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .disabled(!canSave)
+            .accessibilityIdentifier("pace_editor_save_bar_button")
+
+            DS.Colors.bg.frame(height: 8)
+        }
+        .background(DS.Colors.bg.ignoresSafeArea(edges: .bottom))
     }
 
     // ── Sync helpers ────────────────────────────────────────────────

@@ -481,6 +481,64 @@ struct GroupTrainingCard: View {
         }
     }
 
+    // MARK: Up-next preview (audit A4)
+
+    /// One-glance description of what follows the current run/rest phase.
+    private var upNextText: String? {
+        if state.phase == .resting {
+            if state.isSetRest {
+                let nextSet = min(group.effectiveSetCount, state.currentSet + 1)
+                return String(format: "up_next_set".localized, nextSet, group.effectiveSetCount)
+            }
+            let next = state.currentRepetition + 1
+            guard next <= totalReps else { return nil }
+            let time = group.runTimeForRep(next - 1)
+            return String(format: "up_next_rep".localized, next, group.runDistance, segmentDurationText(time))
+        }
+
+        if state.currentRepetition < totalReps {
+            let next = state.currentRepetition + 1
+            let time = group.runTimeForRep(next - 1)
+            return String(format: "up_next_rep".localized, next, group.runDistance, segmentDurationText(time))
+        }
+        if group.effectiveSetCount > 1, state.currentSet < group.effectiveSetCount {
+            return String(format: "up_next_set".localized, state.currentSet + 1, group.effectiveSetCount)
+        }
+        return nil
+    }
+
+    private func upNextRow(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.turn.down.right")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(groupColor)
+            Text(text)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(DS.Colors.textSecondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .fill(DS.Colors.cardHover)
+        )
+        .padding(.horizontal, 20)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("up_next_title".localized + ", " + text)
+    }
+
+    private func segmentDurationText(_ seconds: Double) -> String {
+        if seconds >= 60 {
+            let total = Int(seconds.rounded())
+            return String(format: "%d:%02d", total / 60, total % 60)
+        }
+        return String(format: "%.1f%@", seconds, "sec_label".localized)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if state.isCompleted {
@@ -621,6 +679,9 @@ struct GroupTrainingCard: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
+
+            // ── Up-next preview (audit A4) ───────────────────────
+            if let upNextText { upNextRow(upNextText) }
 
             // ── Overall progress + pause button ──────────────────
             HStack(spacing: 14) {

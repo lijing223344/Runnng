@@ -44,7 +44,9 @@ struct HomeView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .padding(.bottom, 100)
+            // Audit A6: clear the bottom nav bar (≈88pt) with margin so the
+            // 4th card can scroll fully clear instead of hiding behind it.
+            .padding(.bottom, 124)
         }
     }
 

@@ -577,6 +577,9 @@ struct PaceRunGroupTrainingCard: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
 
+            // ── Up-next preview (audit A4) ───────────────────────
+            if let upNextText { upNextRow(upNextText) }
+
             // ── Overall progress bar + pause button ──────────────
             HStack(spacing: 14) {
                 // Progress bar
@@ -667,6 +670,66 @@ struct PaceRunGroupTrainingCard: View {
         // Keep a fixed 2-digit integer field below 100s (e.g. 09.98, 10.00)
         // to avoid visual size jump when crossing 10.xx -> 9.xx.
         return t < 100 ? String(format: "%05.2f", t) : String(format: "%.2f", t)
+    }
+
+    // MARK: Up-next preview (audit A4)
+
+    /// One-glance description of what follows the current run/rest phase.
+    private var upNextText: String? {
+        if state.phase == .resting {
+            if state.restKind == .set {
+                let nextSet = min(group.effectiveSetCount, state.currentSet + 1)
+                return String(format: "up_next_set".localized, nextSet, group.effectiveSetCount)
+            }
+            let next = state.currentSegment + 1
+            guard next <= group.segmentCount else { return nil }
+            let dist = segmentDistances.indices.contains(next - 1) ? segmentDistances[next - 1] : 0
+            let time = group.timeForSegment(next - 1)
+            return String(format: "up_next_segment".localized, next, dist, segmentDurationText(time))
+        }
+
+        if state.currentSegment < group.segmentCount {
+            let next = state.currentSegment + 1
+            let dist = segmentDistances.indices.contains(next - 1) ? segmentDistances[next - 1] : 0
+            let time = group.timeForSegment(next - 1)
+            return String(format: "up_next_segment".localized, next, dist, segmentDurationText(time))
+        }
+        if group.effectiveSetCount > 1, state.currentSet < group.effectiveSetCount {
+            return String(format: "up_next_set".localized, state.currentSet + 1, group.effectiveSetCount)
+        }
+        return nil
+    }
+
+    private func upNextRow(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.turn.down.right")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(groupColor)
+            Text(text)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(DS.Colors.textSecondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .fill(DS.Colors.cardHover)
+        )
+        .padding(.horizontal, 20)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("up_next_title".localized + ", " + text)
+    }
+
+    private func segmentDurationText(_ seconds: Double) -> String {
+        if seconds >= 60 {
+            let total = Int(seconds.rounded())
+            return String(format: "%d:%02d", total / 60, total % 60)
+        }
+        return String(format: "%.1f%@", seconds, "sec_label".localized)
     }
 }
 
@@ -814,13 +877,18 @@ struct SegmentTrackView: View {
             let boundaryX = TrackMath.boundaryPositions(widths: widths, gap: gap)
             
             // Logic to determine label frequency based on total count
-            let labelInterval: Int = {
+            let baseLabelInterval: Int = {
                 if tickCount <= 8 { return 1 }
                 if tickCount <= 16 { return 2 }
                 if tickCount <= 24 { return 4 }
                 return 5
             }()
-            
+            // Audit A4: never let the fixed 44pt labels collide — raise the
+            // interval until the label count fits the available width.
+            let maxLabels = max(2, Int(geo.size.width / 46))
+            let minInterval = Int(ceil(Double(tickCount + 1) / Double(maxLabels)))
+            let labelInterval = max(baseLabelInterval, minInterval)
+
             ZStack(alignment: .topLeading) {
                 // Tick Marks
                 Path { path in
@@ -839,20 +907,22 @@ struct SegmentTrackView: View {
                     let isLast = i == tickCount
                     let isFirst = i == 0
                     let isInterval = i % labelInterval == 0
-                    
+
                     if isInterval || isLast {
-                        let distance = useCompact ? 
+                        let distance = useCompact ?
                             Int(round(Double(i) / Double(max(1, tickCount)) * Double(plannedDistance))) :
                             distanceAtBoundary(i)
-                        
+
+                        // Audit A4: clamp edge labels inside the track so the
+                        // first/last marker ("0米"/"800米") no longer overflow.
+                        let rawX = useCompact ? (CGFloat(i) * step) : boundaryX[max(0, min(i, boundaryX.count - 1))]
+                        let clampedX = min(max(rawX, 22), geo.size.width - 22)
+
                         Text("\(distance)\("unit_meter_short".localized)")
                             .font(.system(size: 9, weight: .black, design: .monospaced))
                             .foregroundStyle(isFirst || isLast ? .white : .white.opacity(0.5))
                             .frame(width: 44) // Constant width to help centering
-                            .position(
-                                x: useCompact ? (CGFloat(i) * step) : boundaryX[max(0, min(i, boundaryX.count - 1))],
-                                y: 22
-                            )
+                            .position(x: clampedX, y: 22)
                     }
                 }
             }

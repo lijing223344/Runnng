@@ -10,6 +10,7 @@ struct FourHundredModelGeneratorView: View {
     @State private var intensityText = "100"
     @State private var draftTraining: PaceRunTraining?
     @State private var navigateToDraftEditor = false
+    @State private var showGeneratedBanner = false
     private let quickIntensityOptions: [Double] = [80, 85, 90, 95, 100]
 
     private var parsedTargetTime: Double? {
@@ -60,6 +61,7 @@ struct FourHundredModelGeneratorView: View {
             .padding(.vertical, 20)
         }
         .background(TrainingPageBackground())
+        .overlay(alignment: .bottom) { generatedBanner }
         .navigationTitle("model_400_title".localized)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $navigateToDraftEditor) {
@@ -398,14 +400,77 @@ struct FourHundredModelGeneratorView: View {
             return
         }
 
+        // Audit A3: stay on page, confirm with a banner; navigation only on user tap.
+        draftTraining = training
         if reduceMotion {
-            draftTraining = training
-            navigateToDraftEditor = true
+            showGeneratedBanner = true
         } else {
             withAnimation(.easeInOut(duration: 0.18)) {
-                draftTraining = training
-                navigateToDraftEditor = true
+                showGeneratedBanner = true
             }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            if reduceMotion {
+                showGeneratedBanner = false
+            } else {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showGeneratedBanner = false
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var generatedBanner: some View {
+        if showGeneratedBanner, let draftTraining {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(DS.Colors.model400)
+                Text(String(
+                    format: "model_400_generated_banner".localized,
+                    draftTraining.name
+                ))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(DS.Colors.textPrimary)
+                .lineLimit(2)
+                Spacer(minLength: 8)
+                Button {
+                    if reduceMotion {
+                        navigateToDraftEditor = true
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            navigateToDraftEditor = true
+                        }
+                    }
+                    showGeneratedBanner = false
+                } label: {
+                    Text("model_400_view_plan".localized)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.Colors.model400)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule().fill(DS.Colors.model400.opacity(DS.Opacity.subtle))
+                        )
+                        .overlay(
+                            Capsule().stroke(DS.Colors.model400.opacity(DS.Opacity.regular), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityIdentifier("model_400_view_plan_button")
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.xl, style: .continuous)
+                    .fill(DS.Colors.card)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.xl, style: .continuous)
+                    .stroke(DS.Colors.border, lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
         }
     }
 

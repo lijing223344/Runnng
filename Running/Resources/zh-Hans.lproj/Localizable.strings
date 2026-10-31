@@ -30,6 +30,10 @@
 "running" = "跑步中";
 "paused" = "已暂停";
 "resting" = "间歇中";
+"up_next_title" = "接下来";
+"up_next_segment" = "下一段 · 第 %d 段 · %d 米 · %@";
+"up_next_rep" = "下一次 · 第 %d 次 · %d 米 · %@";
+"up_next_set" = "接下来 · 第 %d/%d 组";
 "completed" = "已完成";
 "stopped_status" = "已停止";
 "training_complete" = "训练完成";
@@ -199,6 +203,8 @@
 "training_intensity_effective_run_time" = "按 %.1f%% 强度，单次跑步时间：%@";
 "model_400_target_time_default" = "默认 %.2f秒";
 "model_400_generate" = "生成计划";
+"model_400_generated_banner" = "已生成「%@」并保存到节奏跑";
+"model_400_view_plan" = "查看";
 "model_400_generation_note" = "生成的计划使用自定义节奏分段，不包含组循环，也不包含段间休息。";
 "model_400_summary" = "概览";
 "model_400_splits_title" = "%d米分段目标";

@@ -89,12 +89,12 @@ struct SoundSettingsView: View {
             .navigationTitle("sound_settings".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("cancel".localized) { dismiss() }
-                }
+                // Audit A5: volume/vibration persist instantly via onChange;
+                // unify with LanguageSettings (single Done, no fake save).
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("save".localized) { saveSettings(); dismiss() }
+                    Button("done".localized) { dismiss() }
                         .fontWeight(.semibold)
+                        .accessibilityIdentifier("sound_settings_done_button")
                 }
             }
             .onAppear {
@@ -106,8 +106,6 @@ struct SoundSettingsView: View {
             }
         }
     }
-
-    private func saveSettings() { storage.saveSettings(settings) }
 }
 
 #Preview { SoundSettingsView() }

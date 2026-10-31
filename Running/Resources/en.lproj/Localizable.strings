@@ -30,6 +30,10 @@
 "running" = "Running";
 "paused" = "Paused";
 "resting" = "Resting";
+"up_next_title" = "Up next";
+"up_next_segment" = "Next · Seg %d · %dm · %@";
+"up_next_rep" = "Next · Rep %d · %dm · %@";
+"up_next_set" = "Up next · Set %d of %d";
 "completed" = "Done";
 "stopped_status" = "Stopped";
 "training_complete" = "Training Complete";
@@ -199,6 +203,8 @@
 "training_intensity_effective_run_time" = "At %.1f%% intensity, effective run time per rep: %@";
 "model_400_target_time_default" = "Default %.2fs";
 "model_400_generate" = "Generate Plan";
+"model_400_generated_banner" = "Generated \"%@\" and saved to Pace Run";
+"model_400_view_plan" = "View";
 "model_400_generation_note" = "The generated plan uses custom pace segments with no set loop and no rest intervals.";
 "model_400_summary" = "Overview";
 "model_400_splits_title" = "%dm Split Targets";

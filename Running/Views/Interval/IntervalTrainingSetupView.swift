@@ -809,18 +809,21 @@ struct IntervalGroupEditorView: View {
                     .padding(.bottom, 40)
                 }
                 .background(TrainingPageBackground())
+                .safeAreaInset(edge: .bottom) { editorBottomSaveBar }
                 .navigationTitle(isNew ? "add_plan".localized : "edit_group".localized)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button("cancel".localized) { dismiss() }
+                            .accessibilityIdentifier("interval_editor_cancel_button")
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("save".localized) {
                             normalizeAndSave()
                         }
                         .fontWeight(.semibold)
-                        .disabled((useCustomRepeats ? !customRepeatsValid : runTotalSecs <= 0) || normalizedIntensityPercent == nil)
+                        .disabled(!canSave)
+                        .accessibilityIdentifier("interval_editor_save_button")
                     }
                 }
                 .onAppear {
@@ -846,6 +849,38 @@ struct IntervalGroupEditorView: View {
                 }
             }
         }
+    }
+
+    private var canSave: Bool {
+        !((useCustomRepeats ? !customRepeatsValid : runTotalSecs <= 0) || normalizedIntensityPercent == nil)
+    }
+
+    /// Bottom fixed save bar — save without scrolling back to top (audit A2).
+    private var editorBottomSaveBar: some View {
+        VStack(spacing: 0) {
+            LinearGradient(
+                colors: [DS.Colors.bg.opacity(0), DS.Colors.bg],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 14)
+            .allowsHitTesting(false)
+
+            Button(action: normalizeAndSave) {
+                Label("save".localized, systemImage: "checkmark")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(canSave ? .white : DS.Colors.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .trainingPrimaryActionSurface(isEnabled: canSave)
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .disabled(!canSave)
+            .accessibilityIdentifier("interval_editor_save_bar_button")
+
+            DS.Colors.bg.frame(height: 8)
+        }
+        .background(DS.Colors.bg.ignoresSafeArea(edges: .bottom))
     }
 
     private var nameCard: some View {
