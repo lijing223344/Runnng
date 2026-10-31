@@ -10,7 +10,7 @@ enum DS {
         static let paceRun  = Color(red: 0.18, green: 0.45, blue: 0.96)  // Vibrant Royal Blue
         static let interval = Color(red: 1.00, green: 0.50, blue: 0.05)  // Vibrant Orange
         static let model400 = Color(red: 0.15, green: 0.82, blue: 0.38)  // Energetic Green
-        static let miniHurdle = Color(red: 0.10, green: 0.62, blue: 0.70) // Calm Jade-Cyan (降饱和去霓虹感)
+        static let miniHurdle = Color(red: 0.85, green: 0.72, blue: 0.42) // Champagne Gold (精密量具·黑金语言,用户选定)
 
         // Semantic
         static let success = Color(red: 0.30, green: 0.80, blue: 0.46)

@@ -1479,15 +1479,15 @@ private func miniSegmentedPicker<T: Hashable>(
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
-                    .foregroundStyle(selected ? .white : DS.Colors.textSecondary)
+                    .foregroundStyle(selected ? DS.Colors.miniHurdle : DS.Colors.textSecondary)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(selected ? Color.white.opacity(0.12) : DS.Colors.field)
+                            .fill(selected ? DS.Colors.miniHurdle.opacity(0.18) : DS.Colors.field)
                     )
                     .overlay(
                         Capsule(style: .continuous)
                             .stroke(
-                                selected ? Color.white.opacity(0.55) : DS.Colors.border,
+                                selected ? DS.Colors.miniHurdle.opacity(0.80) : DS.Colors.border,
                                 lineWidth: 1
                             )
                     )
