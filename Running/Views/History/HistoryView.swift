@@ -10,8 +10,22 @@ struct HistoryView: View {
     var body: some View {
         ZStack {
             DS.Colors.bg.ignoresSafeArea()
-            Group {
-                if records.isEmpty { emptyState } else { recordsList }
+            VStack(alignment: .leading, spacing: 0) {
+                // Audit B3: page header matching the training tab idiom
+                // (HomeView hides the system navigation bar, so the inline
+                // navigationTitle never rendered inside the home tabs).
+                Text("training_history".localized)
+                    .font(.system(size: 32, weight: .bold))
+                    .tracking(-1)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Group {
+                    if records.isEmpty { emptyState } else { recordsList }
+                }
             }
         }
         .navigationTitle("training_history".localized)

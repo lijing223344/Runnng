@@ -16,6 +16,9 @@ enum DS {
         static let success = Color(red: 0.30, green: 0.80, blue: 0.46)
         static let warning = Color(red: 0.96, green: 0.68, blue: 0.24)
         static let error   = Color(red: 0.94, green: 0.36, blue: 0.36)
+        // Cool accent reserved for rest/countdown phases (audit B1 —
+        // replaces scattered Color.cyan usages across training editors).
+        static let rest    = Color(red: 0.20, green: 0.78, blue: 0.95)
 
         // Surfaces — Pure Black
         static let bg          = Color(red: 0.0, green: 0.0, blue: 0.0)       // #000000 - True Black

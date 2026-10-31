@@ -13,7 +13,7 @@ struct HomeView: View {
                 DS.Colors.bg.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Content
+                    // Content — cross-fade on tab switch (audit C3)
                     Group {
                         switch selectedTab {
                         case .training: trainingContent
@@ -22,6 +22,9 @@ struct HomeView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .id(selectedTab)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.15), value: selectedTab)
 
                     bottomNav
                 }
@@ -131,10 +134,12 @@ struct HomeView: View {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: active ? .semibold : .regular))
                     .foregroundStyle(active ? .white : DS.Colors.textTertiary)
+                // Audit C3: 10pt labels failed the 11pt minimum readable size.
                 Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(active ? .white : DS.Colors.textTertiary)
             }
+            .animation(.easeInOut(duration: 0.15), value: active)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
         }

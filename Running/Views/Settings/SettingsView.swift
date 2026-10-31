@@ -170,7 +170,7 @@ struct SettingsView: View {
                 row(icon: "info.circle", tint: DS.Colors.warning, title: "version".localized, showChevron: false)
                 Spacer()
                 Text(appVersion)
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(.system(size: 13).monospacedDigit())
                     .foregroundStyle(DS.Colors.textTertiary)
             }
         }

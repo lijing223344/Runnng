@@ -75,6 +75,16 @@ struct IntervalTrainingView: View {
     private var countdownOverlay: some View {
         VStack(spacing: 16) {
             Spacer()
+            // Audit C1: give the blank countdown a plan context.
+            Text(training.name)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 32)
+            Text(String(format: "countdown_groups_hint".localized, training.groups.count))
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
             Text("countdown_start".localized)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
@@ -82,7 +92,7 @@ struct IntervalTrainingView: View {
                 .textCase(.uppercase)
             Text("\(countdownSeconds)")
                 .font(DS.Typo.countdownHero)
-                .foregroundStyle(.white)
+                .foregroundStyle(DS.Colors.interval)
                 .monospacedDigit()
                 .contentTransition(.numericText(countsDown: true))
                 .animation(.spring(duration: 0.3), value: countdownSeconds)
@@ -598,10 +608,10 @@ struct GroupTrainingCard: View {
                         Text(String(format: "set_progress".localized, state.currentSet, group.effectiveSetCount))
                             .font(.system(size: 12, weight: .bold))
                     }
-                    .foregroundStyle(state.isSetRest ? Color.orange : .white.opacity(0.7))
+                    .foregroundStyle(state.isSetRest ? DS.Colors.warning : .white.opacity(0.7))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background((state.isSetRest ? Color.orange : Color.white.opacity(0.1)).opacity(0.15))
+                    .background((state.isSetRest ? DS.Colors.warning : Color.white.opacity(0.1)).opacity(0.15))
                     .clipShape(Capsule())
                 }
                 statusPill

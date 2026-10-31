@@ -44,6 +44,7 @@ struct SoundSettingsView: View {
                                 .foregroundStyle(.secondary)
                                 .frame(width: 20)
                             Toggle("sound_vibration".localized, isOn: $settings.soundConfig.vibrationEnabled)
+                                .tint(DS.Colors.success)
                                 .onChange(of: settings.soundConfig.vibrationEnabled) { _, enabled in
                                     soundManager.setVibrationEnabled(enabled)
                                     storage.saveSettings(settings)
@@ -61,7 +62,7 @@ struct SoundSettingsView: View {
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.orange.opacity(0.12))
+                                .fill(DS.Colors.warning.opacity(0.12))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "bell.badge.fill")
                                 .font(.system(size: 16))

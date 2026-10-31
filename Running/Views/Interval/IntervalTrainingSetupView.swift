@@ -133,7 +133,7 @@ struct IntervalTrainingSetupView: View {
             Spacer()
             ZStack {
                 Circle()
-                    .fill(Color.orange.opacity(0.08))
+                    .fill(DS.Colors.interval.opacity(0.08))
                     .frame(width: 100, height: 100)
                 Image(systemName: "repeat.circle.fill")
                     .font(.system(size: 44))
@@ -153,7 +153,7 @@ struct IntervalTrainingSetupView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(minWidth: 160, minHeight: 46)
-                        .background(Color.orange)
+                        .background(DS.Colors.interval)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
@@ -568,7 +568,7 @@ struct IntervalTrainingSetupView: View {
     }
 
     private var startCountdownCard: some View {
-        EditorCard(title: "countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: .cyan) {
+        EditorCard(title: "countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: DS.Colors.rest) {
             HStack(spacing: 8) {
                 ForEach([3, 5, 10, 15, 20], id: \.self) { sec in
                     Button(action: { training.countdownSeconds = sec }) {
@@ -576,7 +576,7 @@ struct IntervalTrainingSetupView: View {
                             .font(.system(size: 14, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(training.countdownSeconds == sec ? Color.cyan : DS.Colors.cardHover)
+                            .background(training.countdownSeconds == sec ? DS.Colors.rest : DS.Colors.cardHover)
                             .foregroundStyle(training.countdownSeconds == sec ? .white : .primary)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
@@ -650,9 +650,9 @@ struct IntervalGroupCard: View {
                 Button(action: onDuplicate) {
                     Image(systemName: "doc.on.doc")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(DS.Colors.interval)
                         .frame(width: 36, height: 36)
-                        .background(Color.indigo.opacity(DS.Opacity.light))
+                        .background(DS.Colors.interval.opacity(DS.Opacity.light))
                         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 }
                 .accessibilityLabel("a11y_duplicate_group".localized)
@@ -662,7 +662,7 @@ struct IntervalGroupCard: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.orange)
                         .frame(width: 36, height: 36)
-                        .background(Color.orange.opacity(DS.Opacity.light))
+                        .background(DS.Colors.interval.opacity(DS.Opacity.light))
                         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 }
                 .accessibilityLabel("a11y_edit_group".localized)
@@ -812,6 +812,7 @@ struct IntervalGroupEditorView: View {
                 .safeAreaInset(edge: .bottom) { editorBottomSaveBar }
                 .navigationTitle(isNew ? "add_plan".localized : "edit_group".localized)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(DS.Colors.bg, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button("cancel".localized) { dismiss() }
@@ -884,7 +885,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var nameCard: some View {
-        EditorCard(title: "plan_name".localized, icon: "tag.fill", iconColor: .orange) {
+        EditorCard(title: "plan_name".localized, icon: "tag.fill", iconColor: DS.Colors.interval) {
             HStack {
                 FloatingTextInputField(
                     placeholder: "plan_name_placeholder".localized,
@@ -897,7 +898,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var distanceCard: some View {
-        EditorCard(title: "run_distance".localized, icon: "arrow.right.circle.fill", iconColor: .orange) {
+        EditorCard(title: "run_distance".localized, icon: "arrow.right.circle.fill", iconColor: DS.Colors.interval) {
             VStack(spacing: 10) {
                 let presets = [50, 100, 150, 200, 300, 400]
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
@@ -907,7 +908,7 @@ struct IntervalGroupEditorView: View {
                                 .font(.system(size: 14, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(group.runDistance == m ? Color.orange : DS.Colors.cardHover)
+                                .background(group.runDistance == m ? DS.Colors.interval : DS.Colors.cardHover)
                                 .foregroundStyle(group.runDistance == m ? .white : .primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
@@ -950,7 +951,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var modeCard: some View {
-        EditorCard(title: "reps_label".localized, icon: "list.number", iconColor: .purple) {
+        EditorCard(title: "reps_label".localized, icon: "list.number", iconColor: DS.Colors.interval) {
             Toggle(isOn: $useCustomRepeats) {
                 Text("custom_repeats_mode".localized)
                     .font(.system(size: 15, weight: .medium))
@@ -980,7 +981,7 @@ struct IntervalGroupEditorView: View {
                         )
                     )
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(DS.Colors.interval)
                 }
             }
         }
@@ -993,7 +994,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var repetitionsCard: some View {
-        EditorCard(title: "reps_label".localized, icon: "repeat", iconColor: .purple) {
+        EditorCard(title: "reps_label".localized, icon: "repeat", iconColor: DS.Colors.interval) {
             VStack(spacing: 10) {
                 HStack(spacing: 8) {
                     ForEach([4, 6, 8, 10, 12, 15], id: \.self) { value in
@@ -1002,7 +1003,7 @@ struct IntervalGroupEditorView: View {
                                 .font(.system(size: 14, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(group.repetitions == value ? Color.purple : DS.Colors.cardHover)
+                                .background(group.repetitions == value ? DS.Colors.interval : DS.Colors.cardHover)
                                 .foregroundStyle(group.repetitions == value ? .white : .primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
@@ -1048,7 +1049,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var intensityCard: some View {
-        EditorCard(title: "model_400_intensity".localized, icon: "dial.high.fill", iconColor: .indigo) {
+        EditorCard(title: "model_400_intensity".localized, icon: "dial.high.fill", iconColor: DS.Colors.interval) {
             VStack(alignment: .leading, spacing: 10) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
                     ForEach(quickIntensityOptions, id: \.self) { option in
@@ -1063,7 +1064,7 @@ struct IntervalGroupEditorView: View {
                                     TrainingIntensity.isQuickSelected(
                                         currentPercent: parsedIntensityPercent,
                                         option: option
-                                    ) ? Color.indigo : DS.Colors.cardHover
+                                    ) ? DS.Colors.interval : DS.Colors.cardHover
                                 )
                                 .foregroundStyle(
                                     TrainingIntensity.isQuickSelected(
@@ -1131,14 +1132,14 @@ struct IntervalGroupEditorView: View {
                         )
                     )
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(DS.Colors.interval)
                 }
             }
         }
     }
 
     private func customRepeatsCard(scrollProxy: ScrollViewProxy) -> some View {
-        EditorCard(title: "custom_repeats_mode".localized, icon: "slider.horizontal.3", iconColor: .indigo) {
+        EditorCard(title: "custom_repeats_mode".localized, icon: "slider.horizontal.3", iconColor: DS.Colors.interval) {
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Text("repeat".localized)
@@ -1183,7 +1184,7 @@ struct IntervalGroupEditorView: View {
                             )
                         )
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(DS.Colors.interval)
                         .opacity(hasNonDefaultIntensity ? 1 : 0)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1209,7 +1210,7 @@ struct IntervalGroupEditorView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.indigo.opacity(0.1))
+                            .background(DS.Colors.interval.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
@@ -1224,7 +1225,7 @@ struct IntervalGroupEditorView: View {
                                 .font(.system(size: 14, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
-                                .background(Color.red.opacity(0.1))
+                                .background(DS.Colors.error.opacity(0.1))
                                 .foregroundStyle(.red)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
@@ -1251,11 +1252,11 @@ struct IntervalGroupEditorView: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(Color.indigo.opacity(0.15))
+                    .fill(DS.Colors.interval.opacity(0.15))
                     .frame(width: 28, height: 28)
                 Text("\(index + 1)")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(DS.Colors.interval)
             }
             .frame(width: 30)
 
@@ -1425,7 +1426,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var countdownCard: some View {
-        EditorCard(title: "run_rest_countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: .cyan) {
+        EditorCard(title: "run_rest_countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: DS.Colors.rest) {
             VStack(spacing: 10) {
                 HStack(spacing: 8) {
                     ForEach([3, 5, 10, 15, 20], id: \.self) { sec in
@@ -1434,7 +1435,7 @@ struct IntervalGroupEditorView: View {
                                 .font(.system(size: 14, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background((group.countdownSeconds ?? 3) == sec ? Color.cyan : DS.Colors.cardHover)
+                                .background((group.countdownSeconds ?? 3) == sec ? DS.Colors.rest : DS.Colors.cardHover)
                                 .foregroundStyle((group.countdownSeconds ?? 3) == sec ? .white : .primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
@@ -1480,7 +1481,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var setCard: some View {
-        EditorCard(title: "set_loop".localized, icon: "square.stack.3d.up.fill", iconColor: .mint) {
+        EditorCard(title: "set_loop".localized, icon: "square.stack.3d.up.fill", iconColor: DS.Colors.interval) {
             VStack(spacing: 10) {
                 HStack {
                     Text("set_count".localized)
@@ -1555,7 +1556,7 @@ struct IntervalGroupEditorView: View {
     }
 
     private var livePaceRow: some View {
-        EditorCard(title: "speed".localized, icon: "speedometer", iconColor: .orange) {
+        EditorCard(title: "speed".localized, icon: "speedometer", iconColor: DS.Colors.interval) {
             HStack(spacing: 0) {
                 liveCell(label: speedUnit == 1 ? "pace".localized : "speed".localized, value: livePace(), color: .orange)
                     .onTapGesture {
@@ -1565,7 +1566,7 @@ struct IntervalGroupEditorView: View {
                         StorageManager.shared.saveSettings(settings)
                     }
                 Divider().frame(height: 36)
-                liveCell(label: "run_time".localized, value: "\(useCustomRepeats ? customRepeats.count : group.repetitions) \("repetitions".localized)", color: .purple)
+                liveCell(label: "run_time".localized, value: "\(useCustomRepeats ? customRepeats.count : group.repetitions) \("repetitions".localized)", color: DS.Colors.interval)
                 Divider().frame(height: 36)
                 liveCell(label: "rest_time".localized, value: "\(effectiveRestSeconds)\("sec_label".localized)", color: .gray)
             }

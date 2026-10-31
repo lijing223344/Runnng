@@ -16,7 +16,9 @@ struct LanguageSettingsView: View {
                                 RoundedRectangle(cornerRadius: 10)
                                     .fill((localization.currentLanguage == code ? DS.Colors.paceRun : Color.secondary).opacity(0.14))
                                     .frame(width: 38, height: 38)
-                                Image(systemName: localization.currentLanguage == code ? "checkmark.circle.fill" : "globe")
+                                // Audit B2: single selection indicator — the row
+                                // trailing checkmark is the one source of truth.
+                                Image(systemName: "globe")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(localization.currentLanguage == code ? DS.Colors.paceRun : .secondary)
                             }
@@ -56,7 +58,9 @@ struct LanguageSettingsView: View {
             .background(DS.Colors.bg)
             .navigationTitle("language_settings".localized)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("done".localized) { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("done".localized) { dismiss() }
+                .accessibilityIdentifier("language_settings_done_button")
+            } }
         }
     }
     

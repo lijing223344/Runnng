@@ -219,6 +219,9 @@ struct MiniHurdleSpacingView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            // Audit B4: solid dark bar once content scrolls underneath,
+            // so the title no longer floats over passing text.
+            .toolbarBackground(DS.Colors.bg, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("mini_hurdle_title".localized)

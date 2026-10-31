@@ -138,7 +138,7 @@ struct PaceRunSetupView: View {
             Spacer()
             ZStack {
                 Circle()
-                    .fill(Color.blue.opacity(0.08))
+                    .fill(DS.Colors.paceRun.opacity(0.08))
                     .frame(width: 100, height: 100)
                 Image(systemName: "figure.run")
                     .font(.system(size: 44))
@@ -158,7 +158,7 @@ struct PaceRunSetupView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(minWidth: 160, minHeight: 46)
-                        .background(Color.blue)
+                        .background(DS.Colors.paceRun)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
@@ -573,7 +573,7 @@ struct PaceRunSetupView: View {
     }
 
     private var startCountdownCard: some View {
-        EditorCard(title: "countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: .cyan) {
+        EditorCard(title: "countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: DS.Colors.rest) {
             HStack(spacing: 8) {
                 ForEach([3, 5, 10, 15, 20], id: \.self) { sec in
                     Button(action: { training.countdownSeconds = sec }) {
@@ -581,7 +581,7 @@ struct PaceRunSetupView: View {
                             .font(.system(size: 14, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(training.countdownSeconds == sec ? Color.cyan : DS.Colors.cardHover)
+                            .background(training.countdownSeconds == sec ? DS.Colors.rest : DS.Colors.cardHover)
                             .foregroundStyle(training.countdownSeconds == sec ? .white : .primary)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
@@ -655,9 +655,9 @@ struct PaceRunGroupCard: View {
                 Button(action: onDuplicate) {
                     Image(systemName: "doc.on.doc")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(DS.Colors.paceRun)
                         .frame(width: 36, height: 36)
-                        .background(Color.indigo.opacity(DS.Opacity.light))
+                        .background(DS.Colors.paceRun.opacity(DS.Opacity.light))
                         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 }
                 .accessibilityLabel("a11y_duplicate_group".localized)
@@ -667,7 +667,7 @@ struct PaceRunGroupCard: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.blue)
                         .frame(width: 36, height: 36)
-                        .background(Color.blue.opacity(DS.Opacity.light))
+                        .background(DS.Colors.paceRun.opacity(DS.Opacity.light))
                         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 }
                 .accessibilityLabel("a11y_edit_group".localized)
@@ -851,6 +851,7 @@ struct PaceRunGroupEditorView: View {
                 .safeAreaInset(edge: .bottom) { editorBottomSaveBar }
                 .navigationTitle(isNew ? "add_plan".localized : "edit_group".localized)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(DS.Colors.bg, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button("cancel".localized) { dismiss() }
@@ -1046,7 +1047,7 @@ struct PaceRunGroupEditorView: View {
     }
 
     private var distanceCard: some View {
-        EditorCard(title: "total_distance".localized, icon: "arrow.right.circle.fill", iconColor: .orange) {
+        EditorCard(title: "total_distance".localized, icon: "arrow.right.circle.fill", iconColor: DS.Colors.paceRun) {
             VStack(spacing: 12) {
                 // Preset chips
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
@@ -1057,7 +1058,7 @@ struct PaceRunGroupEditorView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 9)
                                 .background(group.totalDistance == preset.rawValue
-                                    ? Color.orange : DS.Colors.cardHover)
+                                    ? DS.Colors.paceRun : DS.Colors.cardHover)
                                 .foregroundStyle(group.totalDistance == preset.rawValue
                                     ? .white : .primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -1103,7 +1104,7 @@ struct PaceRunGroupEditorView: View {
     }
 
     private var segmentCard: some View {
-        EditorCard(title: "segment_distance".localized, icon: "ruler.fill", iconColor: .purple) {
+        EditorCard(title: "segment_distance".localized, icon: "ruler.fill", iconColor: DS.Colors.paceRun) {
             VStack(spacing: 12) {
                 // Mode toggle
                 HStack(spacing: 8) {
@@ -1115,7 +1116,7 @@ struct PaceRunGroupEditorView: View {
                             .font(.system(size: 13, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(!useCustomSegments ? Color.purple : DS.Colors.cardHover)
+                            .background(!useCustomSegments ? DS.Colors.paceRun : DS.Colors.cardHover)
                             .foregroundStyle(!useCustomSegments ? .white : .primary)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -1130,7 +1131,7 @@ struct PaceRunGroupEditorView: View {
                             .font(.system(size: 13, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(useCustomSegments ? Color.purple : DS.Colors.cardHover)
+                            .background(useCustomSegments ? DS.Colors.paceRun : DS.Colors.cardHover)
                             .foregroundStyle(useCustomSegments ? .white : .primary)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -1147,7 +1148,7 @@ struct PaceRunGroupEditorView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 9)
                                     .background(group.segmentDistance == preset.rawValue
-                                        ? Color.purple : DS.Colors.cardHover)
+                                        ? DS.Colors.paceRun : DS.Colors.cardHover)
                                     .foregroundStyle(group.segmentDistance == preset.rawValue
                                         ? .white : .primary)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -1195,7 +1196,7 @@ struct PaceRunGroupEditorView: View {
                     Spacer()
                     Text("\(group.segmentCount)")
                         .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(DS.Colors.paceRun)
                     Text("segments".localized)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
@@ -1214,7 +1215,7 @@ struct PaceRunGroupEditorView: View {
     }
 
     private func customSegmentsCard(scrollProxy: ScrollViewProxy) -> some View {
-        EditorCard(title: "segment_custom".localized, icon: "list.number", iconColor: .purple) {
+        EditorCard(title: "segment_custom".localized, icon: "list.number", iconColor: DS.Colors.paceRun) {
             VStack(spacing: 10) {
                 // Mode toggle (same as segmentCard)
                 HStack(spacing: 8) {
@@ -1226,7 +1227,7 @@ struct PaceRunGroupEditorView: View {
                             .font(.system(size: 13, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(!useCustomSegments ? Color.purple : DS.Colors.cardHover)
+                            .background(!useCustomSegments ? DS.Colors.paceRun : DS.Colors.cardHover)
                             .foregroundStyle(!useCustomSegments ? .white : .primary)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -1241,7 +1242,7 @@ struct PaceRunGroupEditorView: View {
                             .font(.system(size: 13, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(useCustomSegments ? Color.purple : DS.Colors.cardHover)
+                            .background(useCustomSegments ? DS.Colors.paceRun : DS.Colors.cardHover)
                             .foregroundStyle(useCustomSegments ? .white : .primary)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -1289,7 +1290,7 @@ struct PaceRunGroupEditorView: View {
                             VStack(spacing: 2) {
                                 Text("\(totalDist)\("unit_meter_short".localized)")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.purple)
+                                    .foregroundStyle(DS.Colors.paceRun)
                                 Text("total_distance".localized)
                                     .font(.system(size: 10))
                                     .foregroundStyle(.secondary)
@@ -1356,7 +1357,7 @@ struct PaceRunGroupEditorView: View {
                                     )
                                 )
                                 .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.indigo)
+                                .foregroundStyle(DS.Colors.paceRun)
                                 .opacity(hasNonDefaultIntensity ? 1 : 0)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1385,8 +1386,8 @@ struct PaceRunGroupEditorView: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.purple.opacity(0.1))
-                                .foregroundStyle(.purple)
+                                .background(DS.Colors.paceRun.opacity(0.1))
+                                .foregroundStyle(DS.Colors.paceRun)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
@@ -1400,7 +1401,7 @@ struct PaceRunGroupEditorView: View {
                                     .font(.system(size: 13, weight: .medium))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
-                                    .background(Color.red.opacity(0.1))
+                                    .background(DS.Colors.error.opacity(0.1))
                                     .foregroundStyle(.red)
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
@@ -1429,11 +1430,11 @@ struct PaceRunGroupEditorView: View {
             // Number circle
             ZStack {
                 Circle()
-                    .fill(Color.purple.opacity(0.15))
+                    .fill(DS.Colors.paceRun.opacity(0.15))
                     .frame(width: 28, height: 28)
                 Text("\(index + 1)")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(DS.Colors.paceRun)
             }
             .frame(width: 30)
 
@@ -1770,7 +1771,7 @@ struct PaceRunGroupEditorView: View {
                         color: .green
                     )
                     Divider().frame(height: 36)
-                    liveStatCell(label: "segment".localized, value: "\(group.segmentCount)", color: .purple)
+                    liveStatCell(label: "segment".localized, value: "\(group.segmentCount)", color: DS.Colors.paceRun)
                 }
                 .padding(.vertical, 4)
                 .background(DS.Colors.field)
@@ -1780,7 +1781,7 @@ struct PaceRunGroupEditorView: View {
     }
 
     private var intensityCard: some View {
-        EditorCard(title: "model_400_intensity".localized, icon: "dial.high.fill", iconColor: .indigo) {
+        EditorCard(title: "model_400_intensity".localized, icon: "dial.high.fill", iconColor: DS.Colors.paceRun) {
             VStack(alignment: .leading, spacing: 10) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
                     ForEach(quickIntensityOptions, id: \.self) { option in
@@ -1795,7 +1796,7 @@ struct PaceRunGroupEditorView: View {
                                     TrainingIntensity.isQuickSelected(
                                         currentPercent: parsedIntensityPercent,
                                         option: option
-                                    ) ? Color.indigo : DS.Colors.cardHover
+                                    ) ? DS.Colors.paceRun : DS.Colors.cardHover
                                 )
                                 .foregroundStyle(
                                     TrainingIntensity.isQuickSelected(
@@ -1863,7 +1864,7 @@ struct PaceRunGroupEditorView: View {
                         )
                     )
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(DS.Colors.paceRun)
                 }
             }
         }
@@ -1922,7 +1923,7 @@ struct PaceRunGroupEditorView: View {
     }
 
     private var countdownCard: some View {
-        EditorCard(title: "run_rest_countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: .cyan) {
+        EditorCard(title: "run_rest_countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: DS.Colors.rest) {
             VStack(spacing: 10) {
                 HStack(spacing: 8) {
                     ForEach([3, 5, 10, 15, 20], id: \.self) { sec in
@@ -1932,7 +1933,7 @@ struct PaceRunGroupEditorView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
                                 .background(group.countdownSeconds == sec
-                                    ? Color.cyan : DS.Colors.cardHover)
+                                    ? DS.Colors.rest : DS.Colors.cardHover)
                                 .foregroundStyle(group.countdownSeconds == sec
                                     ? .white : .primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -1975,7 +1976,7 @@ struct PaceRunGroupEditorView: View {
     }
 
     private var setCard: some View {
-        EditorCard(title: "set_loop".localized, icon: "repeat", iconColor: .mint) {
+        EditorCard(title: "set_loop".localized, icon: "repeat", iconColor: DS.Colors.paceRun) {
             VStack(spacing: 10) {
                 HStack {
                     Text("set_count".localized)
@@ -2078,7 +2079,7 @@ struct PaceRunGroupEditorView: View {
     }
 
     private var soundCard: some View {
-        EditorCard(title: "sound_settings".localized, icon: "speaker.wave.2.fill", iconColor: .indigo) {
+        EditorCard(title: "sound_settings".localized, icon: "speaker.wave.2.fill", iconColor: DS.Colors.paceRun) {
             VStack(spacing: 0) {
                 soundRow(label: "start_sound".localized, selection: $group.startSound)
                 Divider().padding(.leading, 4)

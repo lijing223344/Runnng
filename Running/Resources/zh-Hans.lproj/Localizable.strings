@@ -31,6 +31,7 @@
 "paused" = "已暂停";
 "resting" = "间歇中";
 "up_next_title" = "接下来";
+"countdown_groups_hint" = "%d 组即将开始";
 "up_next_segment" = "下一段 · 第 %d 段 · %d 米 · %@";
 "up_next_rep" = "下一次 · 第 %d 次 · %d 米 · %@";
 "up_next_set" = "接下来 · 第 %d/%d 组";

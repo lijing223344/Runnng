@@ -76,6 +76,16 @@ struct PaceRunMultiTrainingView: View {
     private var countdownOverlay: some View {
         VStack(spacing: 16) {
             Spacer()
+            // Audit C1: give the blank countdown a plan context.
+            Text(training.name)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 32)
+            Text(String(format: "countdown_groups_hint".localized, training.groups.count))
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
             Text("countdown_start".localized)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
@@ -84,7 +94,7 @@ struct PaceRunMultiTrainingView: View {
 
             Text("\(countdownSeconds)")
                 .font(DS.Typo.countdownHero)
-                .foregroundStyle(.white)
+                .foregroundStyle(DS.Colors.paceRun)
                 .monospacedDigit()
                 .contentTransition(.numericText(countsDown: true))
                 .animation(.spring(duration: 0.3), value: countdownSeconds)
@@ -489,10 +499,10 @@ struct PaceRunGroupTrainingCard: View {
                         Text(String(format: "set_progress".localized, state.currentSet, group.effectiveSetCount))
                             .font(.system(size: 12, weight: .bold))
                     }
-                    .foregroundStyle(state.restKind == .set ? Color.orange : .white.opacity(0.7))
+                    .foregroundStyle(state.restKind == .set ? DS.Colors.warning : .white.opacity(0.7))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background((state.restKind == .set ? Color.orange : Color.white.opacity(0.1)).opacity(0.15))
+                    .background((state.restKind == .set ? DS.Colors.warning : Color.white.opacity(0.1)).opacity(0.15))
                     .clipShape(Capsule())
                 }
 
@@ -625,18 +635,17 @@ struct PaceRunGroupTrainingCard: View {
                 Text("resting".localized)
                     .font(.system(size: 12, weight: .semibold))
             } else {
-                Circle()
-                    .fill(groupColor)
-                    .frame(width: 6, height: 6)
+                // Audit C4: header already carries the color dot; the pill
+                // doesn't need a second one.
                 Text("running".localized)
                     .font(.system(size: 12, weight: .semibold))
             }
         }
-        .foregroundStyle(state.isPaused ? Color.orange : (state.phase == .resting ? Color(white: 0.75) : groupColor))
+        .foregroundStyle(state.isPaused ? DS.Colors.warning : (state.phase == .resting ? Color(white: 0.75) : groupColor))
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(
-            (state.isPaused ? Color.orange : (state.phase == .resting ? Color(white: 0.75) : groupColor)).opacity(0.15)
+            (state.isPaused ? DS.Colors.warning : (state.phase == .resting ? Color(white: 0.75) : groupColor)).opacity(0.15)
         )
         .clipShape(Capsule())
     }

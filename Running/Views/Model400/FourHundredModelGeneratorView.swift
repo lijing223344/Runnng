@@ -64,6 +64,7 @@ struct FourHundredModelGeneratorView: View {
         .overlay(alignment: .bottom) { generatedBanner }
         .navigationTitle("model_400_title".localized)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(DS.Colors.bg, for: .navigationBar)
         .navigationDestination(isPresented: $navigateToDraftEditor) {
             if let draftTraining {
                 PaceRunSetupView(seedTraining: draftTraining)
