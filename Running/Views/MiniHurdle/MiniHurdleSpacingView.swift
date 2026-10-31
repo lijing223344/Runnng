@@ -264,33 +264,39 @@ struct MiniHurdleSpacingView: View {
         HStack(spacing: 12) {
             Image(systemName: "ruler")
                 .font(.title3.weight(.semibold))
+                .foregroundStyle(DS.Colors.miniHurdle)
+                .frame(width: 40, height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(DS.Colors.miniHurdle.opacity(0.14))
+                )
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("mini_hurdle_hero_title".localized)
                     .font(.headline)
+                    .foregroundStyle(DS.Colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("mini_hurdle_desc".localized)
                     .font(.caption)
-                    .opacity(0.92)
+                    .foregroundStyle(DS.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
         }
-        .foregroundStyle(.white)
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(
-                colors: [DS.Colors.miniHurdle, DS.Colors.miniHurdle.opacity(0.85)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .fill(DS.Colors.miniHurdle.opacity(0.10))
         )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(DS.Colors.miniHurdle.opacity(0.30), lineWidth: 1)
+        )
         .accessibilityElement(children: .combine)
     }
 
@@ -717,6 +723,7 @@ struct MiniHurdleSpacingView: View {
                         .foregroundStyle(DS.Colors.miniHurdle)
                 }
                 .tint(DS.Colors.miniHurdle)
+                .accessibilityIdentifier("mini_hurdle_measurement_illustration_toggle")
 
                 DisclosureGroup(isExpanded: $measurementGuideExpanded) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -802,18 +809,20 @@ struct MiniHurdleSpacingView: View {
             accent: DS.Colors.miniHurdle
         ) {
             VStack(spacing: 14) {
-                // Compact result summary strip
+                // Compact result summary strip — dark tinted card with teal
+                // accents instead of a solid saturated block (配色升级).
                 HStack(spacing: 10) {
-                    Label(
-                        String(format: measurementUnit.metricFormat, enteredLengthValue),
-                        systemImage: "figure.stand"
-                    )
-                    .font(.system(.footnote, design: .monospaced).weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
+                    Image(systemName: "figure.stand")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(DS.Colors.miniHurdle)
+
+                    Text(String(format: measurementUnit.metricFormat, enteredLengthValue))
+                        .font(.system(.footnote, design: .monospaced).weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
 
                     Text("·")
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(DS.Colors.textTertiary)
 
                     Text(ratioText(result.selectedRatio))
                         .font(.system(.footnote, design: .monospaced).weight(.semibold))
@@ -821,7 +830,7 @@ struct MiniHurdleSpacingView: View {
                         .foregroundStyle(.white)
 
                     Text("·")
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(DS.Colors.textTertiary)
 
                     Text("\(distanceText(result.minimumSpacing)) - \(distanceText(result.maximumSpacing))")
                         .font(.system(.footnote, design: .monospaced).weight(.semibold))
@@ -833,7 +842,11 @@ struct MiniHurdleSpacingView: View {
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(DS.Colors.miniHurdle.opacity(0.85))
+                        .fill(DS.Colors.miniHurdle.opacity(0.12))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(DS.Colors.miniHurdle.opacity(0.35), lineWidth: 1)
                 )
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
