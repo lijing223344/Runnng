@@ -615,8 +615,9 @@ struct MiniHurdleSpacingView: View {
                 Button {
                     adjustGreaterTrochanter(byDisplayUnits: measurementUnit == .centimeters ? -1 : -0.01)
                 } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 22))
+                    // 配色升级:实心霓虹圆钮 → 描边玻璃钮
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 24))
                         .foregroundStyle(DS.Colors.miniHurdle)
                 }
                 .buttonStyle(.plain)
@@ -646,8 +647,8 @@ struct MiniHurdleSpacingView: View {
                 Button {
                     adjustGreaterTrochanter(byDisplayUnits: measurementUnit == .centimeters ? 1 : 0.01)
                 } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22))
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 24))
                         .foregroundStyle(DS.Colors.miniHurdle)
                 }
                 .buttonStyle(.plain)
@@ -1479,15 +1480,15 @@ private func miniSegmentedPicker<T: Hashable>(
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
-                    .foregroundStyle(selected ? .white : DS.Colors.textSecondary)
+                    .foregroundStyle(selected ? DS.Colors.miniHurdle : DS.Colors.textSecondary)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(selected ? DS.Colors.miniHurdle : DS.Colors.field)
+                            .fill(selected ? DS.Colors.miniHurdle.opacity(0.20) : DS.Colors.field)
                     )
                     .overlay(
                         Capsule(style: .continuous)
                             .stroke(
-                                selected ? DS.Colors.miniHurdle.opacity(0.45) : DS.Colors.border,
+                                selected ? DS.Colors.miniHurdle.opacity(0.85) : DS.Colors.border,
                                 lineWidth: 1
                             )
                     )
@@ -1524,9 +1525,10 @@ private struct MiniHurdleSectionCard<Content: View>: View {
                         .frame(width: 3, height: 16)
                 }
                 VStack(alignment: .leading, spacing: DS.Space.xs) {
+                    // 配色升级:标题改主文本色,域色只保留左侧竖条点缀
                     Text(title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(accent ?? DS.Colors.textPrimary)
+                        .foregroundStyle(DS.Colors.textPrimary)
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
                             .font(.caption)
