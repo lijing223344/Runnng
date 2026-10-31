@@ -15,6 +15,7 @@ struct MiniHurdleSpacingView: View {
     @State private var isApplyingSavedAthlete = false
     @State private var hasLoadedAthletes = false
     @State private var measurementGuideExpanded = false
+    @State private var measurementIllustrationExpanded = false
     @State private var methodGuideExpanded = false
     @State private var qualityGuideExpanded = false
     @State private var showAthleteList = false
@@ -133,6 +134,9 @@ struct MiniHurdleSpacingView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     heroSection
                         .id("mini_hurdle_anchor_top")
+                    // Audit MH-5: athlete switching is the first thing a coach
+                    // does on the field — hoist the card above the setup.
+                    athleteSection
                     setupSection
                         .id("mini_hurdle_anchor_middle")
 
@@ -144,7 +148,6 @@ struct MiniHurdleSpacingView: View {
                         invalidStateSection
                     }
 
-                    athleteSection
                     measurementGuideSection
                         .id("mini_hurdle_anchor_measurement")
                     researchSection
@@ -409,7 +412,7 @@ struct MiniHurdleSpacingView: View {
                         MiniHurdleAthleteActionButton(
                             icon: "square.and.pencil",
                             text: "mini_hurdle_athlete_manage_button".localized,
-                            tint: DS.Colors.paceRun,
+                            tint: DS.Colors.miniHurdle,
                             accessibilityIdentifier: "mini_hurdle_athlete_manage_button"
                         ) {
                             editorDraft = MiniHurdleAthleteEditorDraft(
@@ -462,12 +465,7 @@ struct MiniHurdleSpacingView: View {
             Text(title)
                 .font(.subheadline.weight(.semibold))
 
-            Picker(title, selection: selection) {
-                ForEach(options) { option in
-                    Text(option.displayName).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
+            miniSegmentedPicker(selection: selection, options: options) { $0.displayName }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -481,12 +479,7 @@ struct MiniHurdleSpacingView: View {
             Text(title)
                 .font(.subheadline.weight(.semibold))
 
-            Picker(title, selection: selection) {
-                ForEach(options) { option in
-                    Text(option.displayName).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
+            miniSegmentedPicker(selection: selection, options: options) { $0.displayName }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -528,11 +521,14 @@ struct MiniHurdleSpacingView: View {
                     Text("mini_hurdle_strategy_mode_title".localized)
                         .font(.subheadline.weight(.semibold))
 
-                    Picker("mini_hurdle_strategy_mode_title".localized, selection: strategySelectionBinding) {
-                        Text("mini_hurdle_strategy_mann".localized).tag(MiniHurdleStrategyKind.mannRecommended)
-                        Text("mini_hurdle_strategy_clark_range".localized).tag(MiniHurdleStrategyKind.clarkRange)
+                    miniSegmentedPicker(
+                        selection: strategySelectionBinding,
+                        options: [MiniHurdleStrategyKind.mannRecommended, .clarkRange]
+                    ) { kind in
+                        kind == .mannRecommended
+                            ? "mini_hurdle_strategy_mann".localized
+                            : "mini_hurdle_strategy_clark_range".localized
                     }
-                    .pickerStyle(.segmented)
 
                     if activeStrategyDisplayKind == .clarkRange {
                         VStack(alignment: .leading, spacing: 8) {
@@ -544,7 +540,7 @@ struct MiniHurdleSpacingView: View {
                                 Text(ratioText(clampedClarkRangeRatio))
                                     .font(.system(.footnote, design: .monospaced).weight(.semibold))
                                     .monospacedDigit()
-                                    .foregroundStyle(DS.Colors.interval)
+                                    .foregroundStyle(DS.Colors.miniHurdle)
                             }
 
                             Slider(
@@ -552,7 +548,7 @@ struct MiniHurdleSpacingView: View {
                                 in: clarkRatioRange,
                                 step: 0.01
                             )
-                            .tint(DS.Colors.interval)
+                            .tint(DS.Colors.miniHurdle)
                             .accessibilityIdentifier("mini_hurdle_clark_ratio_slider")
 
                             HStack {
@@ -574,7 +570,7 @@ struct MiniHurdleSpacingView: View {
                                     )
                                 )
                                 .font(.caption)
-                                .foregroundStyle(DS.Colors.interval)
+                                .foregroundStyle(DS.Colors.miniHurdle)
                                 .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -585,7 +581,7 @@ struct MiniHurdleSpacingView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(DS.Colors.interval.opacity(0.45), lineWidth: 1)
+                                .stroke(DS.Colors.miniHurdle.opacity(0.45), lineWidth: 1)
                         )
                     } else if let result {
                         Text(
@@ -680,7 +676,8 @@ struct MiniHurdleSpacingView: View {
                     )
                 )
                 .font(.caption)
-                .foregroundStyle(DS.Colors.miniHurdle)
+                // Audit MH-8: conversion note is tertiary context, not a highlight.
+                .foregroundStyle(DS.Colors.textTertiary)
             } else {
                 Text("mini_hurdle_measurement_gt_hint".localized)
                     .font(.caption)
@@ -697,18 +694,29 @@ struct MiniHurdleSpacingView: View {
             accent: DS.Colors.miniHurdle
         ) {
             VStack(alignment: .leading, spacing: 14) {
-                MiniHurdleIllustration(
-                    assetName: measurementGuideAssetName,
-                    accent: DS.Colors.miniHurdle
-                )
-                    .padding(.bottom, 2)
-                    .accessibilityIdentifier("mini_hurdle_measurement_illustration")
+                // Audit MH-10: the light medical diagram dominated ~3 screens
+                // of the dark page — collapse it behind an opt-in disclosure.
+                DisclosureGroup(isExpanded: $measurementIllustrationExpanded) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        MiniHurdleIllustration(
+                            assetName: measurementGuideAssetName,
+                            accent: DS.Colors.miniHurdle
+                        )
+                            .padding(.bottom, 2)
+                            .accessibilityIdentifier("mini_hurdle_measurement_illustration")
 
-                Text("mini_hurdle_measurement_source_note".localized)
-                    .font(.caption2)
-                    .foregroundStyle(DS.Colors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("mini_hurdle_measurement_source_note")
+                        Text("mini_hurdle_measurement_source_note".localized)
+                            .font(.caption2)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("mini_hurdle_measurement_source_note")
+                    }
+                } label: {
+                    Text("mini_hurdle_measurement_illustration_toggle".localized)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(DS.Colors.miniHurdle)
+                }
+                .tint(DS.Colors.miniHurdle)
 
                 DisclosureGroup(isExpanded: $measurementGuideExpanded) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -721,7 +729,7 @@ struct MiniHurdleSpacingView: View {
                         MiniCalloutCard(
                             title: "mini_hurdle_measurement_partner_title".localized,
                             detail: "mini_hurdle_measurement_partner_body".localized,
-                            accent: DS.Colors.interval
+                            accent: DS.Colors.miniHurdle
                         )
 
                         VStack(alignment: .leading, spacing: 10) {
@@ -762,14 +770,14 @@ struct MiniHurdleSpacingView: View {
                         detail: profile == .women
                             ? "mini_hurdle_research_clark_body_women".localized
                             : "mini_hurdle_research_clark_body_men".localized,
-                        accent: DS.Colors.interval
+                        accent: DS.Colors.miniHurdle
                     )
                     MiniExpertCard(
                         title: "mini_hurdle_research_mann_title".localized,
                         detail: profile == .women
                             ? "mini_hurdle_research_mann_body_women".localized
                             : "mini_hurdle_research_mann_body_men".localized,
-                        accent: DS.Colors.paceRun
+                        accent: DS.Colors.miniHurdle
                     )
                     MiniExpertCard(
                         title: "mini_hurdle_strategy_current_note_title".localized,
@@ -954,7 +962,7 @@ struct MiniHurdleSpacingView: View {
                         distanceText(result.hurdlePlacementDistance),
                         distanceText(result.recommendedRunOutDistance)
                     ),
-                    accent: DS.Colors.interval
+                    accent: DS.Colors.miniHurdle
                 )
             }
         }
@@ -1417,7 +1425,8 @@ struct MiniHurdleSpacingView: View {
         storage.deleteMiniHurdleProfile(athlete.id)
         savedAthletes = storage.loadMiniHurdleProfiles()
         presentToast("mini_hurdle_toast_athlete_deleted".localized)
-        playSuccessHaptic()
+        // Audit MH-9: deletion is a cautionary action, not a success celebration.
+        playLightHaptic()
 
         guard wasSelected else { return }
 
@@ -1429,6 +1438,48 @@ struct MiniHurdleSpacingView: View {
             storage.saveSelectedMiniHurdleProfileID(nil)
             selectedAthleteID = nil
             restoreTemporaryDefaults()
+        }
+    }
+}
+
+/// Audit MH-6: capsule segments in the domain accent — the system segmented
+/// style ignores view tint on iOS 26, so the module ships its own two-state
+/// capsule picker matching the training editors' chips. File-scope so both
+/// the main view and the athlete editor share it.
+@ViewBuilder
+private func miniSegmentedPicker<T: Hashable>(
+    selection: Binding<T>,
+    options: [T],
+    label: @escaping (T) -> String
+) -> some View {
+    HStack(spacing: 6) {
+        ForEach(options, id: \.self) { option in
+            let selected = option == selection.wrappedValue
+            Button {
+                guard !selected else { return }
+                selection.wrappedValue = option
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                Text(label(option))
+                    .font(.footnote.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .foregroundStyle(selected ? .white : DS.Colors.textSecondary)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(selected ? DS.Colors.miniHurdle : DS.Colors.field)
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(
+                                selected ? DS.Colors.miniHurdle.opacity(0.45) : DS.Colors.border,
+                                lineWidth: 1
+                            )
+                    )
+            }
+            .buttonStyle(.plain)
         }
     }
 }
@@ -1618,11 +1669,28 @@ private struct MiniHurdleAthleteEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("mini_hurdle_athlete_editor_name_section".localized) {
+            // Audit MH-4: module-native cards replace the system Form so the
+            // editor shares the dark-card / teal design language of the page.
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                MiniHurdleSectionCard(
+                    title: "mini_hurdle_athlete_editor_name_section".localized,
+                    accent: DS.Colors.miniHurdle
+                ) {
                     TextField("mini_hurdle_athlete_editor_name_placeholder".localized, text: $name)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
+                        .font(.body.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .frame(height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(DS.Colors.field)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                        )
                         .accessibilityIdentifier("mini_hurdle_athlete_name_textfield")
 
                     if let validationMessage {
@@ -1632,22 +1700,24 @@ private struct MiniHurdleAthleteEditorSheet: View {
                     }
                 }
 
-                Section("mini_hurdle_profile".localized) {
-                    Picker("mini_hurdle_profile".localized, selection: $editorProfile) {
-                        ForEach(MiniHurdleProfile.allCases) { option in
-                            Text(option.displayName).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                MiniHurdleSectionCard(
+                    title: "mini_hurdle_profile".localized,
+                    accent: DS.Colors.miniHurdle
+                ) {
+                    miniSegmentedPicker(
+                        selection: $editorProfile,
+                        options: MiniHurdleProfile.allCases
+                    ) { $0.displayName }
                 }
 
-                Section("mini_hurdle_measurement_gt_title".localized) {
-                    Picker("mini_hurdle_measurement_unit".localized, selection: $editorMeasurementUnit) {
-                        ForEach(MiniHurdleMeasurementUnit.allCases) { option in
-                            Text(option.displayName).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                MiniHurdleSectionCard(
+                    title: "mini_hurdle_measurement_gt_title".localized,
+                    accent: DS.Colors.miniHurdle
+                ) {
+                    miniSegmentedPicker(
+                        selection: $editorMeasurementUnit,
+                        options: MiniHurdleMeasurementUnit.allCases
+                    ) { $0.displayName }
 
                     HStack {
                         TextField(
@@ -1660,18 +1730,36 @@ private struct MiniHurdleAthleteEditorSheet: View {
                         .font(.system(.title3, design: .monospaced).weight(.semibold))
                         .monospacedDigit()
 
+                        Spacer()
+
                         Text(editorMeasurementUnit.displayName)
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(DS.Colors.textSecondary)
                     }
+                    .padding(.horizontal, 12)
+                    .frame(height: 46)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(DS.Colors.field)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                    )
                 }
 
-                Section("mini_hurdle_strategy_mode_title".localized) {
-                    Picker("mini_hurdle_strategy_mode_title".localized, selection: $editorStrategyKind) {
-                        Text("mini_hurdle_strategy_mann".localized).tag(MiniHurdleStrategyKind.mannRecommended)
-                        Text("mini_hurdle_strategy_clark_range".localized).tag(MiniHurdleStrategyKind.clarkRange)
+                MiniHurdleSectionCard(
+                    title: "mini_hurdle_strategy_mode_title".localized,
+                    accent: DS.Colors.miniHurdle
+                ) {
+                    miniSegmentedPicker(
+                        selection: $editorStrategyKind,
+                        options: [MiniHurdleStrategyKind.mannRecommended, .clarkRange]
+                    ) { kind in
+                        kind == .mannRecommended
+                            ? "mini_hurdle_strategy_mann".localized
+                            : "mini_hurdle_strategy_clark_range".localized
                     }
-                    .pickerStyle(.segmented)
 
                     if editorStrategyKind == .clarkRange {
                         VStack(alignment: .leading, spacing: 8) {
@@ -1683,11 +1771,11 @@ private struct MiniHurdleAthleteEditorSheet: View {
                                 Text(String(format: "%.2f×GT", clampedCustomRatio))
                                     .font(.system(.footnote, design: .monospaced).weight(.semibold))
                                     .monospacedDigit()
-                                    .foregroundStyle(DS.Colors.interval)
+                                    .foregroundStyle(DS.Colors.miniHurdle)
                             }
 
                             Slider(value: $editorCustomRatio, in: clarkRange, step: 0.01)
-                                .tint(DS.Colors.interval)
+                                .tint(DS.Colors.miniHurdle)
 
                             HStack {
                                 Text(String(format: "%.2f", editorProfile.clarkLowerRatio))
@@ -1710,7 +1798,10 @@ private struct MiniHurdleAthleteEditorSheet: View {
                     }
                 }
 
-                Section(summaryTitle) {
+                MiniHurdleSectionCard(
+                    title: summaryTitle,
+                    accent: DS.Colors.miniHurdle
+                ) {
                     Text(summaryText)
                         .font(.subheadline)
                         .foregroundStyle(DS.Colors.textPrimary)
@@ -1720,18 +1811,34 @@ private struct MiniHurdleAthleteEditorSheet: View {
                 }
 
                 if onDelete != nil {
-                    Section {
-                        Button(role: .destructive) {
-                            showDeleteConfirmation = true
-                        } label: {
-                            Text("mini_hurdle_athlete_delete_button".localized)
-                        }
-                        .accessibilityIdentifier("mini_hurdle_athlete_delete_button")
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("mini_hurdle_athlete_delete_button".localized, systemImage: "trash")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(DS.Colors.error)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 46)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(DS.Colors.card)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(DS.Colors.error.opacity(0.40), lineWidth: 1)
+                            )
                     }
+                    .buttonStyle(ScaleButtonStyle())
+                    .accessibilityIdentifier("mini_hurdle_athlete_delete_button")
                 }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
             }
+            .background(TrainingPageBackground())
             .navigationTitle(mode.title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(DS.Colors.bg, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("cancel".localized) {
@@ -1877,6 +1984,8 @@ private struct MiniHurdleAthleteListView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 20))
+                            // Audit MH-7: domain accent, not the leaked system tint.
+                            .foregroundStyle(DS.Colors.miniHurdle)
                     }
                     .accessibilityLabel("mini_hurdle_athlete_list_add_button".localized)
                 }

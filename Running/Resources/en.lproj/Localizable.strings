@@ -257,6 +257,7 @@
 "mini_hurdle_measurement_backup_body" = "If standing palpation is unclear, have the athlete flex the knee to about 90 degrees and slowly internally rotate the hip to find when the greater trochanter becomes most prominent. Then return to natural standing for the formal measurement.";
 "mini_hurdle_measurement_note_title" = "Lock in the landmark before the decimal";
 "mini_hurdle_measurement_note_body" = "A misplaced GT point spreads error into every wicket. Common mistakes are using the iliac crest, measuring diagonally, standing crooked, or following a shorts seam as the measurement line.";
+"mini_hurdle_measurement_illustration_toggle" = "View the standard measurement diagram";
 "mini_hurdle_measurement_source_note" = "Full guide image is for training measurement cues; on the field, use the coach-confirmed GT point and a vertical measuring rod.";
 "mini_hurdle_measurement_iliac" = "Separate the iliac crest from the GT";
 "mini_hurdle_measurement_iliac_hint" = "The GT sits on the lateral proximal femur below the iliac crest. On the athlete, palpate the iliac crest first and then slide down the lateral hip to the GT region.";
@@ -304,7 +305,7 @@
 "mini_hurdle_strategy_pick_4" = "Custom for individual fine-tuning only. Multiplier outside Clark's range requires re-checking landing, posture, and timing.";
 "mini_hurdle_strategy_compare_title" = "Three Reference Setups";
 "mini_hurdle_strategy_compare_subtitle" = "Values update live from GT leg length and profile. Mann is the daily default; Clark defines the working range.";
-"mini_hurdle_strategy_mann" = "Mann Recommended (Default)";
+"mini_hurdle_strategy_mann" = "Mann (Default)";
 "mini_hurdle_strategy_mann_desc" = "Default recommendation and a strong starting point for technically stable athletes.";
 "mini_hurdle_strategy_custom_ratio" = "Custom GT multiplier";
 "mini_hurdle_strategy_range_summary" = "Clark reference range %.2f-%.2f×GT; Mann default point %.2f×GT.";

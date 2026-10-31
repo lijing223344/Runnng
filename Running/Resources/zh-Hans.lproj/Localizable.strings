@@ -257,6 +257,7 @@
 "mini_hurdle_measurement_backup_body" = "若站立位仍难确认，可让运动员屈膝约 90°，缓慢做髋内旋，观察大转子何时最外突；确认骨点后，再回到自然站立位完成正式测量。";
 "mini_hurdle_measurement_note_title" = "先把点找准，再看小数位";
 "mini_hurdle_measurement_note_body" = "大转子点找偏，会把误差放大到每一栏。常见错误是量到髂嵴、沿大腿斜量、身体站歪，或把训练裤缝当作测量线。";
+"mini_hurdle_measurement_illustration_toggle" = "查看标准测量示意图";
 "mini_hurdle_measurement_source_note" = "完整示意图用于训练测量提示；现场仍以教练触诊确认的大转子点和竖直量尺为准。";
 "mini_hurdle_measurement_iliac" = "先分清髂嵴与大转子";
 "mini_hurdle_measurement_iliac_hint" = "大转子位于股骨近端外侧，位置低于髂嵴外缘；现场应先摸到髂嵴外缘，再沿髋外侧向下滑到大转子区域";
