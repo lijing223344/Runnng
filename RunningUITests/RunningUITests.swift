@@ -44,7 +44,10 @@ final class RunningUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        let screenshotsDirectory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        // Best-effort file copy: the attachment above is authoritative.
+        // Device sandboxes deny arbitrary /tmp paths, so write into the
+        // runner's own temporary directory and never fail the test on IO.
+        let screenshotsDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
             .appendingPathComponent("mini-hurdle-ui", isDirectory: true)
 
         do {
@@ -52,7 +55,7 @@ final class RunningUITests: XCTestCase {
             let screenshotURL = screenshotsDirectory.appendingPathComponent("\(name).png")
             try screenshot.pngRepresentation.write(to: screenshotURL)
         } catch {
-            XCTFail("Failed to save screenshot \(name): \(error)", file: file, line: line)
+            // Intentionally non-fatal — see note above.
         }
     }
 
@@ -204,9 +207,50 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(floatingInputConfirm.waitForExistence(timeout: 3))
         floatingInputConfirm.tap()
 
+        // iPad: the confirm tap can land inside the keyboard-hide animation
+        // window and get swallowed — retry until the sheet actually leaves.
+        var confirmAttempts = 1
+        while floatingInputConfirm.exists && confirmAttempts < 4 {
+            confirmAttempts += 1
+            floatingInputConfirm.tap()
+            _ = waitUntil(timeout: 3) { !floatingInputConfirm.exists }
+        }
+        let sheetDismissed = !floatingInputConfirm.exists
+        if !sheetDismissed {
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = "floating-sheet-still-up"
+            shot.lifetime = .keepAlways
+            add(shot)
+        }
+        XCTAssertTrue(sheetDismissed, "Floating input sheet did not dismiss after \(confirmAttempts) confirm taps")
+
         let generateButton = app.buttons["model_400_generate_button"]
         XCTAssertTrue(generateButton.waitForExistence(timeout: 3))
+        // Landscape iPad may keep the CTA below the fold — bring it on
+        // screen before tapping (off-screen taps silently do nothing).
+        var generateScrollAttempts = 0
+        while !generateButton.isHittable && generateScrollAttempts < 6 {
+            app.swipeUp()
+            generateScrollAttempts += 1
+        }
+        XCTAssertTrue(
+            generateButton.isHittable,
+            "Generate CTA not hittable: frame=\(generateButton.frame) window=\(app.frame) swipes=\(generateScrollAttempts)"
+        )
         generateButton.tap()
+
+        // Audit A3 flow: generation stays on this page and confirms with a
+        // banner; navigation happens through its "View" action.
+        let viewPlanButton = app.buttons["model_400_view_plan_button"]
+        let bannerAppeared = viewPlanButton.waitForExistence(timeout: 5)
+        if !bannerAppeared {
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = "generate-no-banner"
+            shot.lifetime = .keepAlways
+            add(shot)
+        }
+        XCTAssertTrue(bannerAppeared)
+        viewPlanButton.tap()
 
         let startButton = app.buttons["pace_start_training_button"]
         XCTAssertTrue(startButton.waitForExistence(timeout: 5))
@@ -235,9 +279,47 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(floatingInputConfirm.waitForExistence(timeout: 3))
         floatingInputConfirm.tap()
 
+        // iPad: the confirm tap can land inside the keyboard-hide animation
+        // window and get swallowed — retry until the sheet actually leaves.
+        var confirmAttempts = 1
+        while floatingInputConfirm.exists && confirmAttempts < 4 {
+            confirmAttempts += 1
+            floatingInputConfirm.tap()
+            _ = waitUntil(timeout: 3) { !floatingInputConfirm.exists }
+        }
+        XCTAssertTrue(!floatingInputConfirm.exists, "Floating input sheet did not dismiss after \(confirmAttempts) confirm taps")
+
         let generateButton = app.buttons["model_400_generate_button"]
         XCTAssertTrue(generateButton.waitForExistence(timeout: 3))
+        // Landscape iPad may keep the CTA below the fold — bring it on
+        // screen before tapping (off-screen taps silently do nothing).
+        var generateScrollAttempts = 0
+        while !generateButton.isHittable && generateScrollAttempts < 6 {
+            app.swipeUp()
+            generateScrollAttempts += 1
+        }
         generateButton.tap()
+
+        // Audit A3 flow: the banner confirms generation; follow it to the
+        // pace list and assert the generated plan name there. On device the
+        // app can stay busy (CloudKit, haptics) — retry the tap if the
+        // banner does not surface in time.
+        let viewPlanButton = app.buttons["model_400_view_plan_button"]
+        var bannerAppeared = viewPlanButton.waitForExistence(timeout: 5)
+        var generateTaps = 1
+        while !bannerAppeared && generateTaps < 3 {
+            generateTaps += 1
+            if generateButton.isHittable { generateButton.tap() }
+            bannerAppeared = viewPlanButton.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(bannerAppeared, "Generation banner did not appear after \(generateTaps) generate taps")
+        // A busy device can delay event delivery past the banner's 5s
+        // auto-hide — re-check and re-generate if it expired before the tap.
+        if !viewPlanButton.exists {
+            if generateButton.isHittable { generateButton.tap() }
+            XCTAssertTrue(viewPlanButton.waitForExistence(timeout: 5))
+        }
+        viewPlanButton.tap()
 
         let generatedTitle = app.staticTexts["Women 400m 50.00 - 50m"]
         XCTAssertTrue(generatedTitle.waitForExistence(timeout: 5))
@@ -355,6 +437,11 @@ final class RunningUITests: XCTestCase {
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["先确认 GT 高度"].waitForExistence(timeout: 5))
+
+        // Audit MH-10: expand the collapsed diagram before asserting it.
+        let illustrationToggle = app.buttons["mini_hurdle_measurement_illustration_toggle"]
+        XCTAssertTrue(illustrationToggle.waitForExistence(timeout: 5))
+        illustrationToggle.tap()
         XCTAssertTrue(app.images["mini_hurdle_measurement_full_image"].waitForExistence(timeout: 5))
 
         captureReferenceScreenshot(name: "mini-hurdle-measurement-upper")
@@ -389,6 +476,12 @@ final class RunningUITests: XCTestCase {
 
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+
+        // Audit MH-10: the diagram now lives behind an opt-in disclosure —
+        // expand it, then assert the diagram is rendered and actionable.
+        let illustrationToggle = app.buttons["mini_hurdle_measurement_illustration_toggle"]
+        XCTAssertTrue(illustrationToggle.waitForExistence(timeout: 5))
+        illustrationToggle.tap()
 
         XCTAssertTrue(app.images["mini_hurdle_measurement_full_image"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["mini_hurdle_gt_marker"].waitForExistence(timeout: 3))

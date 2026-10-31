@@ -407,22 +407,16 @@ struct FourHundredModelGeneratorView: View {
             return
         }
 
-        // Audit A3: stay on page, confirm with a banner; navigation only on user tap.
+        // Audit A3: stay on page, confirm with a banner; navigation only on
+        // user tap. Review pass: the banner stays until dismissed (×) or a
+        // new generation replaces it — a 5s auto-hide raced with busy-device
+        // event delivery, hiding the "View" action before it could be used.
         draftTraining = training
         if reduceMotion {
             showGeneratedBanner = true
         } else {
             withAnimation(.easeInOut(duration: 0.18)) {
                 showGeneratedBanner = true
-            }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-            if reduceMotion {
-                showGeneratedBanner = false
-            } else {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    showGeneratedBanner = false
-                }
             }
         }
     }
@@ -441,6 +435,22 @@ struct FourHundredModelGeneratorView: View {
                 .foregroundStyle(DS.Colors.textPrimary)
                 .lineLimit(2)
                 Spacer(minLength: 8)
+                Button {
+                    if reduceMotion {
+                        showGeneratedBanner = false
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showGeneratedBanner = false
+                        }
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 17))
+                        .foregroundStyle(DS.Colors.textTertiary)
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityLabel("cancel".localized)
+                .accessibilityIdentifier("model_400_banner_dismiss_button")
                 Button {
                     if reduceMotion {
                         navigateToDraftEditor = true
