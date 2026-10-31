@@ -15,6 +15,9 @@ struct WatchHomeView: View {
                 }
             }
             .navigationTitle("PaceCoach")
+            // Audit W7: tinted large titles follow the target AccentColor on
+            // watchOS — kept as the platform-idiomatic brand treatment after
+            // evaluating a white-title override (cost: global tint side effects).
         }
         .onAppear {
             connectivity.requestPlansSync()

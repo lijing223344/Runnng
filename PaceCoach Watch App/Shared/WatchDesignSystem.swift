@@ -11,6 +11,9 @@ enum WDS {
         static let success = Color(red: 0.30, green: 0.80, blue: 0.46)
         static let warning = Color(red: 0.96, green: 0.68, blue: 0.24)
         static let error   = Color(red: 0.94, green: 0.36, blue: 0.36)
+        // Cool accent reserved for rest phases — mirrors iOS DS.Colors.rest
+        // (audit W1: keep rest visually distinct from success/completed green).
+        static let rest    = Color(red: 0.20, green: 0.78, blue: 0.95)
 
         static let bg          = Color.black
         static let card        = Color(red: 0.07, green: 0.07, blue: 0.08)

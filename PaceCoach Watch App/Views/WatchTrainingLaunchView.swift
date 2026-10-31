@@ -69,12 +69,32 @@ struct WatchTrainingLaunchView: View {
             guard let training = try? JSONDecoder().decode(PaceRunTraining.self, from: plan.configData) else { return nil }
             let groups = training.groups.count
             let totalDist = training.groups.map(\.totalDistance).reduce(0, +)
-            return "\(groups) \("groups_count".localized) | \(totalDist)m"
+            // Audit W4: runners care most about total duration before starting.
+            let totalTime = training.groups.reduce(0.0) {
+                $0 + $1.totalTime * Double(max(1, $1.effectiveSetCount))
+            }
+            return "\(groups) \("groups_count".localized) | \(totalDist)m | \(totalTimeText(totalTime))"
         } else {
             guard let training = try? JSONDecoder().decode(IntervalTraining.self, from: plan.configData) else { return nil }
             let groups = training.groups.count
             let totalReps = training.groups.map(\.effectiveRepetitions).reduce(0, +)
-            return "\(groups) \("groups_count".localized) | \(totalReps) \("reps_short".localized)"
+            let totalTime = training.groups.reduce(0.0) { acc, group in
+                let reps = group.effectiveRepetitions
+                let runSum = (0..<reps).map { group.runTimeForRep($0) }.reduce(0.0, +)
+                let restSum = reps > 1 ? (0..<(reps - 1)).map { group.restTimeForRep($0) }.reduce(0.0, +) : 0
+                let sets = max(1, group.effectiveSetCount)
+                let perSet = runSum + restSum
+                return acc + Double(sets) * perSet + Double(sets - 1) * group.effectiveSetRest
+            }
+            return "\(groups) \("groups_count".localized) | \(totalReps) \("reps_short".localized) | \(totalTimeText(totalTime))"
         }
+    }
+
+    private func totalTimeText(_ seconds: Double) -> String {
+        let t = Int(seconds.rounded())
+        if t >= 3600 {
+            return String(format: "%d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
+        }
+        return String(format: "%d:%02d", t / 60, t % 60)
     }
 }

@@ -73,9 +73,16 @@ struct WatchIntervalView: View {
     private var countdownView: some View {
         VStack {
             Spacer()
+            // Audit W3: plan context + domain-accent number on the countdown.
+            Text(plan.name.isEmpty ? "interval_training".localized : plan.name)
+                .font(WDS.Typo.cardTitle)
+                .foregroundColor(WDS.Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, WDS.Space.xl)
             Text("\(countdownValue)")
                 .font(WDS.Typo.countdownHero)
-                .foregroundColor(WDS.Colors.textPrimary)
+                .foregroundColor(WDS.Colors.interval)
                 .contentTransition(.numericText(countsDown: true))
                 .monospacedDigit()
                 .animation(.easeOut(duration: 0.18), value: countdownValue)
@@ -113,7 +120,8 @@ struct WatchIntervalView: View {
                     Image(systemName: isPaused ? "play.fill" : "pause.fill")
                         .font(.title3)
                 }
-                .tint(WDS.Colors.interval)
+                // Audit W2: pause/resume is amber across iPhone and watch.
+                .tint(WDS.Colors.warning)
 
                 Button {
                     showStopAlert = true
@@ -143,7 +151,9 @@ struct WatchIntervalView: View {
     private var phaseColor: Color {
         switch phase {
         case .running: return WDS.Colors.interval
-        case .resting, .setRest: return WDS.Colors.success
+        // Audit W1: rest uses the cool rest token, not success green —
+        // green stays reserved for the completed state.
+        case .resting, .setRest: return WDS.Colors.rest
         default: return WDS.Colors.textSecondary
         }
     }

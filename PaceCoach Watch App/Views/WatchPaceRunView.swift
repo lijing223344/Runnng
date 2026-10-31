@@ -74,9 +74,16 @@ struct WatchPaceRunView: View {
     private var countdownView: some View {
         VStack {
             Spacer()
+            // Audit W3: plan context + domain-accent number on the countdown.
+            Text(plan.name.isEmpty ? "pace_run".localized : plan.name)
+                .font(WDS.Typo.cardTitle)
+                .foregroundColor(WDS.Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, WDS.Space.xl)
             Text("\(countdownValue)")
                 .font(WDS.Typo.countdownHero)
-                .foregroundColor(WDS.Colors.textPrimary)
+                .foregroundColor(currentAccent)
                 .contentTransition(.numericText(countsDown: true))
                 .monospacedDigit()
                 .animation(.easeOut(duration: 0.18), value: countdownValue)
@@ -91,7 +98,7 @@ struct WatchPaceRunView: View {
             // Phase label
             phaseLabel
                 .font(WDS.Typo.caption)
-                .foregroundColor(currentAccent.opacity(0.8))
+                .foregroundColor(phaseColor.opacity(0.8))
 
             // Timer
             Text(formatTime(remainingTime))
@@ -114,7 +121,8 @@ struct WatchPaceRunView: View {
                     Image(systemName: isPaused ? "play.fill" : "pause.fill")
                         .font(.title3)
                 }
-                .tint(currentAccent)
+                // Audit W2: pause/resume is amber across iPhone and watch.
+                .tint(WDS.Colors.warning)
 
                 Button {
                     showStopAlert = true
@@ -159,7 +167,7 @@ struct WatchPaceRunView: View {
             // Progress bar
             let segProgress = segmentProgress(group: group)
             ProgressView(value: segProgress)
-                .tint(currentAccent)
+                .tint(phaseColor)
                 .padding(.horizontal)
         }
     }
@@ -195,6 +203,15 @@ struct WatchPaceRunView: View {
     }
 
     private var currentAccent: Color { WDS.Colors.paceRun }
+
+    /// Audit W1: rest phases use the cool rest token (mirrors iPhone),
+    /// keeping success green reserved for the completed state.
+    private var phaseColor: Color {
+        switch phase {
+        case .segmentRest, .setRest: return WDS.Colors.rest
+        default: return currentAccent
+        }
+    }
 
     private func setup() {
         guard !hasInitialized else { return }

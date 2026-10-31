@@ -72,16 +72,16 @@ Watch 端是一个**克制且正确**的伴生实现：
 
 ---
 
-## 4. 建议实施清单（待用户批准后执行）
+## 4. 实施状态（2026-10-31 当日完成，用户批准 W1-W7）
 
-| # | 级别 | 改动 | 涉及 | 预估 |
-|---|---|---|---|---|
-| W1 | P1 | 新增 `WDS.Colors.rest`，休息相位色替换（已实锤） | IntervalView/PaceRunView phaseColor | 10min |
-| W2 | P1 | 暂停/继续 tint → warning，与 iOS Phase B1 对齐 | 两训练视图控制区 | 10min |
-| W3 | P2 | 倒计时计划名+域色数字（对齐 iOS C1） | 两训练视图 countdownView | 20min |
-| W4 | P2 | 启动页摘要加总时长 | TrainingLaunchView | 20min |
-| W5 | P2 | 完成页加实际用时 | 两训练视图 completedView | 20min |
-| W6 | P2 | 本地化键中英核对/补齐 | Watch Resources | 15min |
-| W7 | P2 | 首页导航标题固定白色 | WatchHomeView | 10min |
+| # | 结果 | 证据 |
+|---|---|---|
+| W1 休息色 → rest 青色 | ✅ 已实施（间歇+配速两视图，新增 `WDS.Colors.rest`） | W12：休息态青色标签+进度条 |
+| W2 暂停 → warning 琥珀 | ✅ 已实施（两视图控制区） | W12 暂停按钮琥珀 |
+| W3 倒计时计划名+域色数字 | ✅ 已实施 | W11：「200m×6 间歇训练」+ 橙色大 3 |
+| W4 启动页总时长 | ✅ 已实施（配速 Σ totalTime×组数；间歇 Σ run+rest+组间休息） | W10：「1 组 \| 800m \| 4:00」 |
+| W5 完成页实际用时 | ✅ 核实**两侧本已实现**（静态审计读漏，`formatTime(elapsedTotal)` 早已存在）— 无需改动 | 源码 completedView |
+| W6 本地化键 | ✅ 中英 15 键逐一核对全绿 — 无需改动 | 双 .strings |
+| W7 首页标题白色 | ⚪ **评估后接受现状**：watchOS 大标题取自 target 全局 AccentColor（Assets），视图级 tint 无法覆盖；强改需动全局 tint（波及系统控件）或降级为 inline 标题，代价大于收益。平台惯例下 tinted 标题成立 | W09 |
 
-W8 为观察项不改。全部为视图层改动，预计 2 小时内含验证（watch 模拟器走查复用本次注入法）。
+> 实施注记：全部为视图层改动；构建通过（watchOS 27.2 / Series 12 46mm 模拟器逐项目验）。W8 维持观察项不改。
