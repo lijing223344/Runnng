@@ -295,7 +295,7 @@ struct MiniHurdleSpacingView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(DS.Colors.miniHurdle.opacity(0.30), lineWidth: 1)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
     }
@@ -376,7 +376,7 @@ struct MiniHurdleSpacingView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(DS.Colors.miniHurdle.opacity(0.45), lineWidth: 1)
+                                .stroke(DS.Colors.border, lineWidth: 1)
                         )
                     }
                     .accessibilityIdentifier("mini_hurdle_athlete_switch_button")
@@ -587,7 +587,7 @@ struct MiniHurdleSpacingView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(DS.Colors.miniHurdle.opacity(0.45), lineWidth: 1)
+                                .stroke(DS.Colors.border, lineWidth: 1)
                         )
                     } else if let result {
                         Text(
@@ -615,10 +615,9 @@ struct MiniHurdleSpacingView: View {
                 Button {
                     adjustGreaterTrochanter(byDisplayUnits: measurementUnit == .centimeters ? -1 : -0.01)
                 } label: {
-                    // 配色升级:实心霓虹圆钮 → 描边玻璃钮
                     Image(systemName: "minus.circle")
                         .font(.system(size: 24))
-                        .foregroundStyle(DS.Colors.miniHurdle)
+                        .foregroundStyle(DS.Colors.textSecondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("mini_hurdle_gt_decrease".localized)
@@ -649,7 +648,7 @@ struct MiniHurdleSpacingView: View {
                 } label: {
                     Image(systemName: "plus.circle")
                         .font(.system(size: 24))
-                        .foregroundStyle(DS.Colors.miniHurdle)
+                        .foregroundStyle(DS.Colors.textSecondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("mini_hurdle_gt_increase".localized)
@@ -847,7 +846,7 @@ struct MiniHurdleSpacingView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(DS.Colors.miniHurdle.opacity(0.35), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 )
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -1480,15 +1479,15 @@ private func miniSegmentedPicker<T: Hashable>(
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
-                    .foregroundStyle(selected ? DS.Colors.miniHurdle : DS.Colors.textSecondary)
+                    .foregroundStyle(selected ? .white : DS.Colors.textSecondary)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(selected ? DS.Colors.miniHurdle.opacity(0.20) : DS.Colors.field)
+                            .fill(selected ? Color.white.opacity(0.12) : DS.Colors.field)
                     )
                     .overlay(
                         Capsule(style: .continuous)
                             .stroke(
-                                selected ? DS.Colors.miniHurdle.opacity(0.85) : DS.Colors.border,
+                                selected ? Color.white.opacity(0.55) : DS.Colors.border,
                                 lineWidth: 1
                             )
                     )
@@ -1518,22 +1517,15 @@ private struct MiniHurdleSectionCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.lg) {
-            HStack(spacing: 8) {
-                if let accent {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(accent)
-                        .frame(width: 3, height: 16)
-                }
-                VStack(alignment: .leading, spacing: DS.Space.xs) {
-                    // 配色升级:标题改主文本色,域色只保留左侧竖条点缀
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(DS.Colors.textPrimary)
-                    if let subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundStyle(DS.Colors.textSecondary)
-                    }
+            // 审美升级:标题纯排版层级(白字+灰副题),不再用色条标注
+            VStack(alignment: .leading, spacing: DS.Space.xs) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(DS.Colors.textPrimary)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(DS.Colors.textSecondary)
                 }
             }
             content
@@ -1595,15 +1587,15 @@ private struct MiniHurdleAthleteActionButton: View {
                 .padding(.horizontal, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(tint.opacity(isDisabled ? 0.06 : 0.14))
+                        .fill(isDisabled ? Color.white.opacity(0.03) : Color.white.opacity(0.08))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(tint.opacity(isDisabled ? 0.15 : 0.36), lineWidth: 1)
+                        .stroke(isDisabled ? Color.white.opacity(0.08) : Color.white.opacity(0.22), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isDisabled ? DS.Colors.textTertiary : tint)
+        .foregroundStyle(isDisabled ? DS.Colors.textTertiary : DS.Colors.textPrimary)
         .disabled(isDisabled)
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -2034,8 +2026,9 @@ private struct MiniMetricTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
+            // 审美升级:指标卡转石墨中性,域色只留给活数据
             RoundedRectangle(cornerRadius: 2)
-                .fill(tint)
+                .fill(DS.Colors.textPrimary.opacity(0.30))
                 .frame(width: 8, height: 8)
 
             Text(value)
@@ -2053,11 +2046,11 @@ private struct MiniMetricTile: View {
         .padding(DS.Space.md)
         .background(
             RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .fill(tint.opacity(0.14))
+                .fill(DS.Colors.cardHover)
         )
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(tint.opacity(0.45), lineWidth: 1)
+                .stroke(DS.Colors.border, lineWidth: 1)
         )
     }
 }
