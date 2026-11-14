@@ -447,5 +447,6 @@
 "mini_hurdle_toast_athlete_selected" = "Switched to %@";
 "mini_hurdle_autosave_format" = "Auto-saved %@";
 "mini_hurdle_invalid_gt_hint" = "Enter a GT length greater than 0. The typical range is 50–120 cm (0.50–1.20 m).";
+"mini_hurdle_gt_out_of_range_hint" = "Value is outside the common range (50–120 cm / 0.50–1.20 m) — double-check measurement and unit.";
 "mini_hurdle_gt_decrease" = "Decrease GT length";
 "mini_hurdle_gt_increase" = "Increase GT length";

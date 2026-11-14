@@ -447,5 +447,6 @@
 "mini_hurdle_toast_athlete_selected" = "已切换至 %@";
 "mini_hurdle_autosave_format" = "已自动保存 %@";
 "mini_hurdle_invalid_gt_hint" = "请输入大于 0 的有效大转子高度，常见范围为 50–120 cm（0.50–1.20 m）。";
+"mini_hurdle_gt_out_of_range_hint" = "当前输入超出常见范围（50–120 cm / 0.50–1.20 m），请复核测量与单位。";
 "mini_hurdle_gt_decrease" = "减少大转子高度";
 "mini_hurdle_gt_increase" = "增加大转子高度";

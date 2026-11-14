@@ -724,13 +724,18 @@ struct MiniHurdleSpacingView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(
-                        isGTInputInvalid ? DS.Colors.warning.opacity(0.8) : DS.Colors.miniHurdle.opacity(0.45),
+                        (isGTInputInvalid || isGTOutOfRange) ? DS.Colors.warning.opacity(0.8) : DS.Colors.miniHurdle.opacity(0.45),
                         lineWidth: 1
                     )
             )
 
             if isGTInputInvalid {
                 Text("mini_hurdle_invalid_gt_hint".localized)
+                    .font(.caption)
+                    .foregroundStyle(DS.Colors.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if isGTOutOfRange {
+                Text("mini_hurdle_gt_out_of_range_hint".localized)
                     .font(.caption)
                     .foregroundStyle(DS.Colors.warning)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1087,6 +1092,13 @@ struct MiniHurdleSpacingView: View {
         !sanitizeDecimalInput(greaterTrochanterText).isEmpty && parsedGreaterTrochanterLength == nil
     }
 
+    // P3 修复：软警告——超出常见人体范围（50–120 cm）时仍参与计算，
+    // 但警示框变橙并提示复核，避免 905 cm 之类录入错误无声产出垃圾表。
+    private var isGTOutOfRange: Bool {
+        guard let parsedGreaterTrochanterLength else { return false }
+        return parsedGreaterTrochanterLength < 0.5 || parsedGreaterTrochanterLength > 1.2
+    }
+
     private func adjustGreaterTrochanter(byDisplayUnits delta: Double) {
         // 以当前显示单位为步进精度（cm 模式 ±1，m 模式 ±0.01），
         // 直接读写显示值，避免中间换算被显示格式（%.0f / %.2f）吞掉步进。
@@ -1274,6 +1286,8 @@ struct MiniHurdleSpacingView: View {
         greaterTrochanterText = "86"
         strategyKind = .mannRecommended
         clarkRangeRatio = MiniHurdleProfile.women.mannRecommendedRatio
+        // P3 修复：回到临时态后，指示器不再显示上一档案的保存时间。
+        lastAutoSaveDate = nil
         DispatchQueue.main.async {
             isApplyingSavedAthlete = false
         }
@@ -1443,6 +1457,8 @@ struct MiniHurdleSpacingView: View {
             storage.saveSelectedMiniHurdleProfileID(newAthlete.id)
             savedAthletes = storage.loadMiniHurdleProfiles()
             selectedAthleteID = newAthlete.id
+            // P3 修复：新建档案尚无自动同步，重置指示器避免显示上一档案时间。
+            lastAutoSaveDate = nil
             applyAthlete(newAthlete)
             presentToast("mini_hurdle_toast_athlete_saved".localized)
             playSuccessHaptic()
@@ -1475,6 +1491,8 @@ struct MiniHurdleSpacingView: View {
 
             if selectedAthleteID == athlete.id {
                 storage.saveSelectedMiniHurdleProfileID(athlete.id)
+                // P3 修复：编辑提交是显式动作而非自动同步，重置指示器。
+                lastAutoSaveDate = nil
                 applyAthlete(athlete)
             }
             presentToast("mini_hurdle_toast_athlete_updated".localized)
@@ -1489,6 +1507,8 @@ struct MiniHurdleSpacingView: View {
         storage.saveSelectedMiniHurdleProfileID(updatedAthlete.id)
         savedAthletes = storage.loadMiniHurdleProfiles()
         selectedAthleteID = updatedAthlete.id
+        // P3 修复：切档后重置指示器，待下一次真实自动同步再显示新时间。
+        lastAutoSaveDate = nil
         applyAthlete(updatedAthlete)
         presentToast(String(format: "mini_hurdle_toast_athlete_selected".localized, athlete.name))
         playLightHaptic()
@@ -1663,6 +1683,12 @@ private struct MiniHurdleAthleteEditorSheet: View {
         validationMessage == nil && parsedGtLength != nil
     }
 
+    // P3 修复：编辑器与主页共用同一软警告口径（50–120 cm 之外提示复核）。
+    private var isGtOutOfRange: Bool {
+        guard let parsedGtLength else { return false }
+        return parsedGtLength < 0.5 || parsedGtLength > 1.2
+    }
+
     private var clarkRange: ClosedRange<Double> {
         editorProfile.clarkLowerRatio...editorProfile.clarkUpperRatio
     }
@@ -1780,8 +1806,18 @@ private struct MiniHurdleAthleteEditorSheet: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
+                            .stroke(
+                                isGtOutOfRange ? DS.Colors.warning.opacity(0.8) : DS.Colors.fieldBorder,
+                                lineWidth: 1
+                            )
                     )
+
+                    if isGtOutOfRange {
+                        Text("mini_hurdle_gt_out_of_range_hint".localized)
+                            .font(.caption)
+                            .foregroundStyle(DS.Colors.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 MiniHurdleSectionCard(
