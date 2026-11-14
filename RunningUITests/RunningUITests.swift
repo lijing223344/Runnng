@@ -334,7 +334,7 @@ final class RunningUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars.staticTexts["小栏架栏距"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.scrollViews["mini_hurdle_scroll"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["现场设定"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["摆栏设定"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["GT 下肢长（大转子高度）"].waitForExistence(timeout: 3))
 
         captureReferenceScreenshot(name: "mini-hurdle-top")
@@ -364,7 +364,7 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(miniHurdleEntry.waitForExistence(timeout: 5))
         miniHurdleEntry.tap()
 
-        XCTAssertTrue(app.staticTexts["现场设定"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["摆栏设定"].waitForExistence(timeout: 8))
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
 
@@ -398,7 +398,7 @@ final class RunningUITests: XCTestCase {
         ]
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["现场设定"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["摆栏设定"].waitForExistence(timeout: 8))
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
 
