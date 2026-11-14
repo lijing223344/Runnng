@@ -288,7 +288,7 @@
 "mini_hurdle_measurement_unit_m" = "m";
 "mini_hurdle_measurement_gt_title" = "GT Leg Length";
 "mini_hurdle_measurement_gt_hint" = "Enter the measured GT leg length. Values entered in centimeters are converted automatically to meters for calculation.";
-"mini_hurdle_measurement_gt_converted" = "Current input %@, calculated as %.2f m.";
+"mini_hurdle_measurement_gt_converted" = "Calculated as %2$.2f m.";
 "mini_hurdle_strategy_mode_title" = "Longest-spacing reference";
 "mini_hurdle_strategy_clark_range" = "Clark Range";
 "mini_hurdle_strategy_clark_range_desc" = "Use the slider to choose the target longest spacing inside Clark's working range.";
@@ -407,7 +407,7 @@
 "mini_hurdle_athlete_temporary_subtitle" = "Temporary input works on the field right away — no profile needed. Save as athlete only for long-term records.";
 "mini_hurdle_athlete_temporary_name" = "Temporary Input";
 "mini_hurdle_athlete_saved_badge" = "Selected";
-"mini_hurdle_athlete_temporary_badge" = "No profile needed";
+"mini_hurdle_athlete_temporary_badge" = "Temporary";
 "mini_hurdle_athlete_switch_button" = "Switch Athlete";
 "mini_hurdle_athlete_save_button" = "Save as Athlete";
 "mini_hurdle_athlete_save_as_new_button" = "Save as New Athlete";
