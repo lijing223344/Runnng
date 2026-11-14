@@ -112,6 +112,10 @@ struct MiniHurdleSpacingView: View {
             : "mini_hurdle_athlete_saved_badge".localized
     }
 
+    private var badgeTint: Color {
+        selectedAthlete == nil ? DS.Colors.textSecondary : DS.Colors.success
+    }
+
     private var athleteConfigSummary: String {
         if let selectedAthlete {
             return athleteSummary(for: selectedAthlete)
@@ -381,14 +385,16 @@ struct MiniHurdleSpacingView: View {
                     }
                     .accessibilityIdentifier("mini_hurdle_athlete_switch_button")
 
+                    // Audit MH-11b: temporary mode is a valid on-field workflow,
+                    // not a problem — render its badge neutral instead of warning.
                     Text(athleteBadgeText)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(selectedAthlete == nil ? DS.Colors.warning : DS.Colors.success)
+                        .foregroundStyle(badgeTint)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule(style: .continuous)
-                                .fill((selectedAthlete == nil ? DS.Colors.warning : DS.Colors.success).opacity(0.18))
+                                .fill(badgeTint.opacity(0.18))
                         )
                 }
 
@@ -510,7 +516,11 @@ struct MiniHurdleSpacingView: View {
                             selection: $measurementUnit,
                             options: MiniHurdleMeasurementUnit.allCases
                         )
+                        // Audit MH-11b: on iPad the stepper card stretched to
+                        // half the screen — cap its width so the value stays
+                        // visually anchored next to the unit picker.
                         compactGTInputCard
+                            .frame(maxWidth: 280, alignment: .leading)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -616,7 +626,7 @@ struct MiniHurdleSpacingView: View {
                     adjustGreaterTrochanter(byDisplayUnits: measurementUnit == .centimeters ? -1 : -0.01)
                 } label: {
                     Image(systemName: "minus.circle")
-                        .font(.system(size: 24))
+                        .font(.system(size: 22))
                         .foregroundStyle(DS.Colors.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -633,7 +643,7 @@ struct MiniHurdleSpacingView: View {
                 .keyboardType(.decimalPad)
                 .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
-                .font(.system(.title3, design: .monospaced).weight(.semibold))
+                .font(.system(.body, design: .monospaced).weight(.semibold))
                 .monospacedDigit()
                 .multilineTextAlignment(.center)
                 .foregroundStyle(DS.Colors.textPrimary)
@@ -647,7 +657,7 @@ struct MiniHurdleSpacingView: View {
                     adjustGreaterTrochanter(byDisplayUnits: measurementUnit == .centimeters ? 1 : 0.01)
                 } label: {
                     Image(systemName: "plus.circle")
-                        .font(.system(size: 24))
+                        .font(.system(size: 22))
                         .foregroundStyle(DS.Colors.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -655,7 +665,7 @@ struct MiniHurdleSpacingView: View {
                 .accessibilityIdentifier("mini_hurdle_gt_step_up")
             }
             .padding(.horizontal, 12)
-            .frame(height: 42)
+            .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(DS.Colors.field)
@@ -1734,7 +1744,7 @@ private struct MiniHurdleAthleteEditorSheet: View {
                         .keyboardType(.decimalPad)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
-                        .font(.system(.title3, design: .monospaced).weight(.semibold))
+                        .font(.system(.body, design: .monospaced).weight(.semibold))
                         .monospacedDigit()
 
                         Spacer()
@@ -1744,7 +1754,7 @@ private struct MiniHurdleAthleteEditorSheet: View {
                             .foregroundStyle(DS.Colors.textSecondary)
                     }
                     .padding(.horizontal, 12)
-                    .frame(height: 46)
+                    .frame(height: 44)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(DS.Colors.field)
