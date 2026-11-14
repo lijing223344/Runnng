@@ -404,8 +404,8 @@
 "mini_hurdle_invalid_ratio" = "请输入有效的 GT 倍数。";
 "mini_hurdle_athlete_title" = "当前运动员";
 "mini_hurdle_athlete_saved_subtitle" = "切换运动员后，当前设定自动同步到该档案。";
-"mini_hurdle_athlete_temporary_subtitle" = "临时输入可直接现场测试，无需建档；需要长期记录时，再点「保存为运动员」。";
-"mini_hurdle_athlete_temporary_name" = "临时输入";
+"mini_hurdle_athlete_temporary_subtitle" = "下方字段即改即用、不入档；需要留档时点「保存为运动员」。";
+"mini_hurdle_athlete_temporary_name" = "临时数据";
 "mini_hurdle_athlete_saved_badge" = "已选中";
 "mini_hurdle_athlete_temporary_badge" = "无需建档";
 "mini_hurdle_athlete_switch_button" = "切换运动员";

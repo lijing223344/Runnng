@@ -96,7 +96,7 @@ struct MiniHurdleSpacingView: View {
         parsedGreaterTrochanterLength != nil && strategy != nil
     }
 
-    private var athleteSectionSubtitle: String {
+    private var athleteStateCaption: String {
         selectedAthlete == nil
             ? "mini_hurdle_athlete_temporary_subtitle".localized
             : "mini_hurdle_athlete_saved_subtitle".localized
@@ -138,9 +138,8 @@ struct MiniHurdleSpacingView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     heroSection
                         .id("mini_hurdle_anchor_top")
-                    // Audit MH-5: athlete switching is the first thing a coach
-                    // does on the field — hoist the card above the setup.
-                    athleteSection
+                    // 逻辑重构：现场设定是唯一工作台，运动员身份只是卡内的
+                    // 一行归属状态——不再作为独立入口与输入并列。
                     setupSection
                         .id("mini_hurdle_anchor_middle")
 
@@ -304,107 +303,123 @@ struct MiniHurdleSpacingView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var athleteSection: some View {
-        MiniHurdleSectionCard(
-            title: "mini_hurdle_athlete_title".localized,
-            subtitle: athleteSectionSubtitle,
-            accent: DS.Colors.miniHurdle
-        ) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 12) {
-                    // Inline athlete selector
-                    Menu {
-                        Button {
-                            // Deselect - switch to temporary input
-                            if selectedAthlete != nil {
-                                storage.saveSelectedMiniHurdleProfileID(nil)
-                                selectedAthleteID = nil
-                                savedAthletes = storage.loadMiniHurdleProfiles()
-                                restoreTemporaryDefaults()
-                                playLightHaptic()
-                            }
-                        } label: {
-                            Label(
-                                "mini_hurdle_athlete_temporary_name".localized,
-                                systemImage: selectedAthlete == nil ? "checkmark.circle.fill" : "circle"
-                            )
-                        }
-
-                        if !savedAthletes.isEmpty {
-                            Divider()
-                        }
-
-                        ForEach(savedAthletes) { athlete in
-                            Button {
-                                selectAthlete(athlete)
-                            } label: {
-                                HStack {
-                                    Label(athlete.name, systemImage: athlete.id == selectedAthleteID ? "checkmark.circle.fill" : "circle")
-                                    Spacer()
-                                    Text(athleteSummary(for: athlete))
-                                        .font(.caption2)
-                                }
-                            }
-                            .accessibilityIdentifier("mini_hurdle_athlete_picker_name_\(athlete.name)")
+    // 运动员身份条：嵌入现场设定卡顶部的一行归属状态。
+    // 临时数据 = 卡内未入档的值；选中档案 = 下方字段自动同步（autosave 逻辑不变）。
+    private var athleteStrip: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Menu {
+                    Button {
+                        if selectedAthlete != nil {
+                            storage.saveSelectedMiniHurdleProfileID(nil)
+                            selectedAthleteID = nil
+                            savedAthletes = storage.loadMiniHurdleProfiles()
+                            restoreTemporaryDefaults()
+                            playLightHaptic()
                         }
                     } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "person.circle.fill")
-                                .font(.title3)
-                                .foregroundStyle(DS.Colors.miniHurdle)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(athleteDisplayName)
-                                    .font(.headline)
-                                    .foregroundStyle(DS.Colors.textPrimary)
-                                    .accessibilityIdentifier("mini_hurdle_current_athlete_name")
-
-                                Text(athleteConfigSummary)
-                                    .font(.caption)
-                                    .foregroundStyle(DS.Colors.textSecondary)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                            }
-
-                            Spacer(minLength: 4)
-
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(DS.Colors.textSecondary)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(DS.Colors.field)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(DS.Colors.border, lineWidth: 1)
+                        Label(
+                            "mini_hurdle_athlete_temporary_name".localized,
+                            systemImage: selectedAthlete == nil ? "checkmark.circle.fill" : "circle"
                         )
                     }
-                    .accessibilityIdentifier("mini_hurdle_athlete_switch_button")
 
-                    // Audit MH-11b: temporary mode is a valid on-field workflow,
-                    // not a problem — render its badge neutral instead of warning.
-                    Text(athleteBadgeText)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(badgeTint)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(badgeTint.opacity(0.18))
-                        )
+                    if !savedAthletes.isEmpty {
+                        Divider()
+                    }
+
+                    ForEach(savedAthletes) { athlete in
+                        Button {
+                            selectAthlete(athlete)
+                        } label: {
+                            HStack {
+                                Label(athlete.name, systemImage: athlete.id == selectedAthleteID ? "checkmark.circle.fill" : "circle")
+                                Spacer()
+                                Text(athleteSummary(for: athlete))
+                                    .font(.caption2)
+                            }
+                        }
+                        .accessibilityIdentifier("mini_hurdle_athlete_picker_name_\(athlete.name)")
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.circle.fill")
+                            .font(.body)
+                            .foregroundStyle(DS.Colors.miniHurdle)
+
+                        Text(athleteDisplayName)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .foregroundStyle(DS.Colors.textPrimary)
+                            .accessibilityIdentifier("mini_hurdle_current_athlete_name")
+
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(DS.Colors.textSecondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 38)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(DS.Colors.field)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(DS.Colors.border, lineWidth: 1)
+                    )
                 }
+                .accessibilityIdentifier("mini_hurdle_athlete_switch_button")
 
-                HStack(spacing: 8) {
-                    MiniHurdleAthleteActionButton(
-                        icon: selectedAthlete == nil ? "square.and.arrow.down" : "plus.circle.fill",
-                        text: selectedAthlete == nil
-                            ? "mini_hurdle_athlete_save_button".localized
-                            : "mini_hurdle_athlete_save_as_new_button".localized,
-                        tint: DS.Colors.miniHurdle,
+                Text(athleteBadgeText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(badgeTint)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(badgeTint.opacity(0.18))
+                    )
+
+                Spacer(minLength: 4)
+
+                if !savedAthletes.isEmpty {
+                    Button {
+                        showAthleteList = true
+                    } label: {
+                        Image(systemName: "person.2.circle")
+                            .font(.system(size: 20))
+                            .foregroundStyle(DS.Colors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("mini_hurdle_athlete_list_manage_button".localized)
+                    .accessibilityIdentifier("mini_hurdle_athlete_list_button")
+                }
+            }
+
+            HStack(spacing: 8) {
+                if selectedAthlete == nil {
+                    compactStripButton(
+                        icon: "square.and.arrow.down",
+                        text: "mini_hurdle_athlete_save_button".localized,
+                        isDisabled: !canSaveCurrentSetupAsAthlete,
+                        accessibilityIdentifier: "mini_hurdle_athlete_save_button"
+                    ) {
+                        editorDraft = MiniHurdleAthleteEditorDraft(
+                            mode: .create,
+                            athleteID: nil,
+                            name: "",
+                            profile: profile,
+                            greaterTrochanterLength: parsedGreaterTrochanterLength ?? 0.86,
+                            measurementUnit: measurementUnit,
+                            strategyKind: strategyKind,
+                            customRatio: activeStoredRatio
+                        )
+                    }
+                } else {
+                    compactStripButton(
+                        icon: "plus.circle.fill",
+                        text: "mini_hurdle_athlete_save_as_new_button".localized,
                         isDisabled: !canSaveCurrentSetupAsAthlete,
                         accessibilityIdentifier: "mini_hurdle_athlete_save_button"
                     ) {
@@ -421,10 +436,10 @@ struct MiniHurdleSpacingView: View {
                     }
 
                     if let selectedAthlete {
-                        MiniHurdleAthleteActionButton(
+                        compactStripButton(
                             icon: "square.and.pencil",
                             text: "mini_hurdle_athlete_manage_button".localized,
-                            tint: DS.Colors.miniHurdle,
+                            isDisabled: false,
                             accessibilityIdentifier: "mini_hurdle_athlete_manage_button"
                         ) {
                             editorDraft = MiniHurdleAthleteEditorDraft(
@@ -440,32 +455,55 @@ struct MiniHurdleSpacingView: View {
                         }
                     }
                 }
+            }
 
-                if selectedAthlete != nil, let lastAutoSaveDate {
-                    Label(
-                        String(
-                            format: "mini_hurdle_autosave_format".localized,
-                            lastAutoSaveDate.formatted(date: .omitted, time: .shortened)
-                        ),
-                        systemImage: "checkmark.circle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(DS.Colors.success)
-                    .accessibilityIdentifier("mini_hurdle_autosave_indicator")
-                }
+            Text(athleteStateCaption)
+                .font(.caption)
+                .foregroundStyle(DS.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-                if !savedAthletes.isEmpty {
-                    MiniHurdleAthleteActionButton(
-                        icon: "person.2.circle",
-                        text: "mini_hurdle_athlete_list_manage_button".localized,
-                        tint: DS.Colors.textSecondary,
-                        accessibilityIdentifier: "mini_hurdle_athlete_list_button"
-                    ) {
-                        showAthleteList = true
-                    }
-                }
+            if selectedAthlete != nil, let lastAutoSaveDate {
+                Label(
+                    String(
+                        format: "mini_hurdle_autosave_format".localized,
+                        lastAutoSaveDate.formatted(date: .omitted, time: .shortened)
+                    ),
+                    systemImage: "checkmark.circle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(DS.Colors.success)
+                .accessibilityIdentifier("mini_hurdle_autosave_indicator")
             }
         }
+    }
+
+    private func compactStripButton(
+        icon: String,
+        text: String,
+        isDisabled: Bool,
+        accessibilityIdentifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(text, systemImage: icon)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .padding(.horizontal, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(isDisabled ? Color.white.opacity(0.03) : Color.white.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(isDisabled ? Color.white.opacity(0.08) : Color.white.opacity(0.22), lineWidth: 1)
+                )
+                .foregroundStyle(isDisabled ? DS.Colors.textTertiary : DS.Colors.textPrimary)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private func setupPickerColumn(
@@ -503,6 +541,10 @@ struct MiniHurdleSpacingView: View {
             accent: DS.Colors.miniHurdle
         ) {
             VStack(alignment: .leading, spacing: 8) {
+                athleteStrip
+
+                Divider()
+
                 setupPickerColumn(
                     title: "mini_hurdle_profile".localized,
                     selection: $profile,
@@ -1577,38 +1619,6 @@ private struct MiniHurdleAthleteEditorDraft: Identifiable {
     var measurementUnit: MiniHurdleMeasurementUnit = .centimeters
     var strategyKind: MiniHurdleStrategyKind = .mannRecommended
     var customRatio: Double? = nil
-}
-
-private struct MiniHurdleAthleteActionButton: View {
-    let icon: String
-    let text: String
-    let tint: Color
-    var isDisabled = false
-    let accessibilityIdentifier: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(text, systemImage: icon)
-                .font(.footnote.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .padding(.horizontal, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(isDisabled ? Color.white.opacity(0.03) : Color.white.opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(isDisabled ? Color.white.opacity(0.08) : Color.white.opacity(0.22), lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(isDisabled ? DS.Colors.textTertiary : DS.Colors.textPrimary)
-        .disabled(isDisabled)
-        .accessibilityIdentifier(accessibilityIdentifier)
-    }
 }
 
 private struct MiniHurdleAthleteEditorSheet: View {

@@ -404,10 +404,10 @@
 "mini_hurdle_invalid_ratio" = "Enter a valid GT multiplier.";
 "mini_hurdle_athlete_title" = "Current Athlete";
 "mini_hurdle_athlete_saved_subtitle" = "Current settings auto-sync to the selected athlete.";
-"mini_hurdle_athlete_temporary_subtitle" = "Temporary input works on the field right away — no profile needed. Save as athlete only for long-term records.";
-"mini_hurdle_athlete_temporary_name" = "Temporary Input";
+"mini_hurdle_athlete_temporary_subtitle" = "Fields below apply instantly and stay unsaved. Use Save as Athlete to keep them.";
+"mini_hurdle_athlete_temporary_name" = "Temporary Data";
 "mini_hurdle_athlete_saved_badge" = "Selected";
-"mini_hurdle_athlete_temporary_badge" = "Temporary";
+"mini_hurdle_athlete_temporary_badge" = "Unsaved";
 "mini_hurdle_athlete_switch_button" = "Switch Athlete";
 "mini_hurdle_athlete_save_button" = "Save as Athlete";
 "mini_hurdle_athlete_save_as_new_button" = "Save as New Athlete";
