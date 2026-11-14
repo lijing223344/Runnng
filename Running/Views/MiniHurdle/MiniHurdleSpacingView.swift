@@ -303,100 +303,102 @@ struct MiniHurdleSpacingView: View {
         .accessibilityElement(children: .combine)
     }
 
-    // 运动员身份条：嵌入现场设定卡顶部的一行归属状态。
-    // 临时数据 = 卡内未入档的值；选中档案 = 下方字段自动同步（autosave 逻辑不变）。
-    private var athleteStrip: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Menu {
-                    Button {
-                        if selectedAthlete != nil {
-                            storage.saveSelectedMiniHurdleProfileID(nil)
-                            selectedAthleteID = nil
-                            savedAthletes = storage.loadMiniHurdleProfiles()
-                            restoreTemporaryDefaults()
-                            playLightHaptic()
-                        }
-                    } label: {
-                        Label(
-                            "mini_hurdle_athlete_temporary_name".localized,
-                            systemImage: selectedAthlete == nil ? "checkmark.circle.fill" : "circle"
-                        )
-                    }
-
-                    if !savedAthletes.isEmpty {
-                        Divider()
-                    }
-
-                    ForEach(savedAthletes) { athlete in
-                        Button {
-                            selectAthlete(athlete)
-                        } label: {
-                            HStack {
-                                Label(athlete.name, systemImage: athlete.id == selectedAthleteID ? "checkmark.circle.fill" : "circle")
-                                Spacer()
-                                Text(athleteSummary(for: athlete))
-                                    .font(.caption2)
-                            }
-                        }
-                        .accessibilityIdentifier("mini_hurdle_athlete_picker_name_\(athlete.name)")
+    // 身份行：卡首部的归属状态显示——只读状态，不含入档动作。
+    private var athleteIdentityRow: some View {
+        HStack(spacing: 8) {
+            Menu {
+                Button {
+                    if selectedAthlete != nil {
+                        storage.saveSelectedMiniHurdleProfileID(nil)
+                        selectedAthleteID = nil
+                        savedAthletes = storage.loadMiniHurdleProfiles()
+                        restoreTemporaryDefaults()
+                        playLightHaptic()
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.body)
-                            .foregroundStyle(DS.Colors.miniHurdle)
-
-                        Text(athleteDisplayName)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .foregroundStyle(DS.Colors.textPrimary)
-                            .accessibilityIdentifier("mini_hurdle_current_athlete_name")
-
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(DS.Colors.textSecondary)
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(height: 38)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(DS.Colors.field)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(DS.Colors.border, lineWidth: 1)
+                    Label(
+                        "mini_hurdle_athlete_temporary_name".localized,
+                        systemImage: selectedAthlete == nil ? "checkmark.circle.fill" : "circle"
                     )
                 }
-                .accessibilityIdentifier("mini_hurdle_athlete_switch_button")
-
-                Text(athleteBadgeText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(badgeTint)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(badgeTint.opacity(0.18))
-                    )
-
-                Spacer(minLength: 4)
 
                 if !savedAthletes.isEmpty {
-                    Button {
-                        showAthleteList = true
-                    } label: {
-                        Image(systemName: "person.2.circle")
-                            .font(.system(size: 20))
-                            .foregroundStyle(DS.Colors.textSecondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("mini_hurdle_athlete_list_manage_button".localized)
-                    .accessibilityIdentifier("mini_hurdle_athlete_list_button")
+                    Divider()
                 }
-            }
 
+                ForEach(savedAthletes) { athlete in
+                    Button {
+                        selectAthlete(athlete)
+                    } label: {
+                        HStack {
+                            Label(athlete.name, systemImage: athlete.id == selectedAthleteID ? "checkmark.circle.fill" : "circle")
+                            Spacer()
+                            Text(athleteSummary(for: athlete))
+                                .font(.caption2)
+                        }
+                    }
+                    .accessibilityIdentifier("mini_hurdle_athlete_picker_name_\(athlete.name)")
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.circle.fill")
+                        .font(.body)
+                        .foregroundStyle(DS.Colors.miniHurdle)
+
+                    Text(athleteDisplayName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .foregroundStyle(DS.Colors.textPrimary)
+                        .accessibilityIdentifier("mini_hurdle_current_athlete_name")
+
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(DS.Colors.textSecondary)
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(DS.Colors.field)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(DS.Colors.border, lineWidth: 1)
+                )
+            }
+            .accessibilityIdentifier("mini_hurdle_athlete_switch_button")
+
+            Text(athleteBadgeText)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(badgeTint)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(badgeTint.opacity(0.18))
+                )
+
+            Spacer(minLength: 4)
+
+            if !savedAthletes.isEmpty {
+                Button {
+                    showAthleteList = true
+                } label: {
+                    Image(systemName: "person.2.circle")
+                        .font(.system(size: 20))
+                        .foregroundStyle(DS.Colors.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("mini_hurdle_athlete_list_manage_button".localized)
+                .accessibilityIdentifier("mini_hurdle_athlete_list_button")
+            }
+        }
+    }
+
+    // 动作行：位于全部输入字段之后——先输入，后入档，与操作流同向。
+    private var athleteActionsRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 if selectedAthlete == nil {
                     compactStripButton(
@@ -457,11 +459,7 @@ struct MiniHurdleSpacingView: View {
                 }
             }
 
-            Text(athleteStateCaption)
-                .font(.caption)
-                .foregroundStyle(DS.Colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+            // 临时态：说明数值不入档；已保存态且已有自动保存：显示最近同步时间。
             if selectedAthlete != nil, let lastAutoSaveDate {
                 Label(
                     String(
@@ -473,6 +471,11 @@ struct MiniHurdleSpacingView: View {
                 .font(.caption)
                 .foregroundStyle(DS.Colors.success)
                 .accessibilityIdentifier("mini_hurdle_autosave_indicator")
+            } else {
+                Text(athleteStateCaption)
+                    .font(.caption)
+                    .foregroundStyle(DS.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -541,7 +544,8 @@ struct MiniHurdleSpacingView: View {
             accent: DS.Colors.miniHurdle
         ) {
             VStack(alignment: .leading, spacing: 8) {
-                athleteStrip
+                // 顶部：这套设定属于谁（状态显示，无入档动作）
+                athleteIdentityRow
 
                 Divider()
 
@@ -654,6 +658,11 @@ struct MiniHurdleSpacingView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+                // 底部：输入完成后的入档动作（保存/另存/编辑），与操作流同向
+                Divider()
+
+                athleteActionsRow
             }
         }
     }

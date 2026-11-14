@@ -233,7 +233,7 @@
 "mini_hurdle_home_desc" = "输入 GT 高度，生成 21 栏小栏架递进栏距与现场摆放点。";
 "mini_hurdle_hero_title" = "输入 GT 高度，生成小栏架摆放点";
 "mini_hurdle_desc" = "先量大转子高度，再选择 Mann 默认或 Clark 区间。结果用于现场摆栏和节奏微调，不是医学腿长评估。";
-"mini_hurdle_setup_title" = "现场设定";
+"mini_hurdle_setup_title" = "摆栏设定";
 "mini_hurdle_setup_subtitle" = "输入 GT 高度，选择 Mann 默认或 Clark 区间；先按结果摆栏，再根据节奏、落点和速度质量微调。";
 "mini_hurdle_measurement_title" = "先确认 GT 高度";
 "mini_hurdle_measurement_subtitle" = "GT 高度指站立时股骨大转子上缘到地面的垂直高度。它用于估算短跑小栏架摆放，不等于裆长，也不能沿大腿外侧斜量。";
@@ -404,7 +404,7 @@
 "mini_hurdle_invalid_ratio" = "请输入有效的 GT 倍数。";
 "mini_hurdle_athlete_title" = "当前运动员";
 "mini_hurdle_athlete_saved_subtitle" = "切换运动员后，当前设定自动同步到该档案。";
-"mini_hurdle_athlete_temporary_subtitle" = "下方字段即改即用、不入档；需要留档时点「保存为运动员」。";
+"mini_hurdle_athlete_temporary_subtitle" = "数值不入档，保存后可在训练现场快速切换。";
 "mini_hurdle_athlete_temporary_name" = "临时数据";
 "mini_hurdle_athlete_saved_badge" = "已选中";
 "mini_hurdle_athlete_temporary_badge" = "无需建档";

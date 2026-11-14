@@ -233,7 +233,7 @@
 "mini_hurdle_home_desc" = "Enter GT leg length to generate the 21-wicket spacing progression and layout points.";
 "mini_hurdle_hero_title" = "Set mini-hurdle rhythm from GT height";
 "mini_hurdle_desc" = "Measure GT leg length, then generate the 21-wicket progression. This is a sprint-training stride reference, not a medical leg-length diagnosis.";
-"mini_hurdle_setup_title" = "Quick Setup";
+"mini_hurdle_setup_title" = "Placement Setup";
 "mini_hurdle_setup_subtitle" = "Enter GT leg length, set the final target spacing from Mann or Clark, then adjust from rhythm and landing quality.";
 "mini_hurdle_measurement_title" = "Measure greater-trochanter height first";
 "mini_hurdle_measurement_subtitle" = "Here, leg length means the vertical height from the superior greater trochanter to the standing surface. It estimates sprint-spacing reference, not inseam, and not a diagonal outside-leg measure.";
@@ -404,7 +404,7 @@
 "mini_hurdle_invalid_ratio" = "Enter a valid GT multiplier.";
 "mini_hurdle_athlete_title" = "Current Athlete";
 "mini_hurdle_athlete_saved_subtitle" = "Current settings auto-sync to the selected athlete.";
-"mini_hurdle_athlete_temporary_subtitle" = "Fields below apply instantly and stay unsaved. Use Save as Athlete to keep them.";
+"mini_hurdle_athlete_temporary_subtitle" = "Values stay unsaved. Save as athlete to switch quickly on the field.";
 "mini_hurdle_athlete_temporary_name" = "Temporary Data";
 "mini_hurdle_athlete_saved_badge" = "Selected";
 "mini_hurdle_athlete_temporary_badge" = "Unsaved";
