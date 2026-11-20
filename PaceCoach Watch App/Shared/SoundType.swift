@@ -10,6 +10,10 @@ enum SoundType: String, CaseIterable, Identifiable, Codable {
     case buzzer
     case whistleStandard
     case whistleQixinlu
+    case splitTick
+    case startTriad
+    case restBell
+    case finishArpeggio
 
     var id: String { rawValue }
 
@@ -21,7 +25,11 @@ enum SoundType: String, CaseIterable, Identifiable, Codable {
         case .airHorn:         return "sound_air_horn"
         case .buzzer:          return "sound_buzzer"
         case .whistleStandard: return "sound_whistle_standard"
-        case .whistleQixinlu:  return "sound_whistle_qixinlu"
+        case .whistleQixinlu:  return "sound_whistle_crisp_short"
+        case .splitTick:       return "sound_split_tick"
+        case .startTriad:      return "sound_start_triad"
+        case .restBell:        return "sound_rest_bell"
+        case .finishArpeggio:  return "sound_finish_arpeggio"
         }
     }
 

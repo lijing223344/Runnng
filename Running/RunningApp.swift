@@ -25,6 +25,7 @@ struct RunningApp: App {
                 .preferredColorScheme(.dark)
                 .onAppear {
                     storage.loadUser()
+                    storage.migrateLegacySoundCuesIfNeeded()
                     let settings = storage.loadSettings()
                     localization.synchronizeWithSettingsLanguage(settings.language)
                     soundManager.setVolume(settings.soundConfig.volume)

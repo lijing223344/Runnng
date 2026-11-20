@@ -25,7 +25,7 @@ struct PaceRunMultiTrainingView: View {
     @State private var countdownSeconds: Int = 3
     @State private var isCountdown: Bool = true
     @State private var timer: Timer?
-    @State private var lastTickUptime: TimeInterval = 0
+    @State private var lastTickDate: Date?
     @State private var showConfirmStop = false
     @State private var didSaveRecord = false
     @State private var hasStartedTraining = false
@@ -60,10 +60,21 @@ struct PaceRunMultiTrainingView: View {
         .onDisappear {
             timer?.invalidate()
             soundManager.endTrainingRuntimeSupport()
+            // Completed sessions already ended with a 90 s grace card; this
+            // only clears an activity when the screen is left mid-session.
+            TrainingLiveActivityManager.shared.end()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                lastTickUptime = ProcessInfo.processInfo.systemUptime
+            switch phase {
+            case .active:
+                resumeTimingIfNeeded()
+            case .background, .inactive:
+                // Leaving the foreground ends the island immediately: a card
+                // must not keep showing a session that is no longer running.
+                TrainingLiveActivityManager.shared.endAllImmediately()
+                suspendTiming()
+            @unknown default:
+                break
             }
         }
         .alert("confirm_stop".localized, isPresented: $showConfirmStop) {
@@ -103,23 +114,92 @@ struct PaceRunMultiTrainingView: View {
     }
 
     // MARK: - Training Content
+    //
+    // Unfolded canvases split into a timing column and a context column; the
+    // compact layout keeps the single scroll the phone already used.
     private var trainingContent: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 12) {
-                ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
-                    if index < groupStates.count {
-                    PaceRunGroupTrainingCard(
-                        group: group,
-                        state: groupStates[index],
-                        onPauseToggle: { togglePauseGroup(index) }
-                    )
+        GeometryReader { geo in
+            if DSLayout.isWide(geo.size.width) {
+                DSTrainingSplit(width: geo.size.width, fillHeight: max(0, geo.size.height - 150)) {
+                    VStack(spacing: 12) { groupCards() }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 120)
+                } trailing: {
+                    contextColumn
+                        .frame(maxWidth: 640, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+                        .padding(.bottom, 120)
+                }
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 12) { groupCards() }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 120)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func groupCards() -> some View {
+        ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
+            if index < groupStates.count {
+                PaceRunGroupTrainingCard(
+                    group: group,
+                    state: groupStates[index],
+                    onPauseToggle: { togglePauseGroup(index) }
+                )
+            }
+        }
+    }
+
+    private var contextColumn: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
+                if index < groupStates.count {
+                    if groupStates[index].isCompleted {
+                        completedRow(group: group)
+                    } else if training.groups.count > 1 {
+                        HStack(spacing: 8) {
+                            DSLaneTick(color: parseColor(group.colorHex))
+                            Text(group.name)
+                                .font(DS.Typo.cardSubtitle)
+                                .foregroundStyle(DS.Colors.textSecondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 120)
         }
+    }
+
+    private func completedRow(group: PaceRunGroup) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DS.Colors.success)
+            Text(group.name)
+                .font(DS.Typo.cardSubtitle)
+                .foregroundStyle(DS.Colors.textSecondary)
+            Text("completed".localized)
+                .font(DS.Typo.meta)
+                .foregroundStyle(DS.Colors.textHint)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func parseColor(_ hex: String) -> Color {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard cleaned.count == 6, let value = UInt32(cleaned, radix: 16) else { return DS.Colors.paceRun }
+        return Color(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
     }
 
     // MARK: - Bottom Controls
@@ -182,6 +262,7 @@ struct PaceRunMultiTrainingView: View {
         didSaveRecord = false
         hasStartedTraining = false
         sessionStartedAt = nil
+        lastTickDate = nil
     }
 
     private func startCountdown() {
@@ -215,19 +296,45 @@ struct PaceRunMultiTrainingView: View {
             groupStates[index].restKind = nil
         }
         startTimer()
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.begin(trainingID: training.id, state: state)
+        }
     }
 
     private func startTimer() {
-        lastTickUptime = ProcessInfo.processInfo.systemUptime
+        lastTickDate = Date()
         let mainTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
-            let now = ProcessInfo.processInfo.systemUptime
-            let rawElapsed = max(0, now - self.lastTickUptime)
-            self.lastTickUptime = now
+            let now = Date()
+            let rawElapsed = max(0, now.timeIntervalSince(lastTickDate ?? now))
+            lastTickDate = now
             let elapsed = min(rawElapsed, self.maxTickElapsed)
             self.updateAllGroups(elapsed: elapsed)
         }
         RunLoop.main.add(mainTimer, forMode: .common)
         timer = mainTimer
+    }
+
+    /// Stop advancing the clock when leaving the foreground. The next
+    /// resume measures the real wall-clock gap and replays it through the
+    /// group state machine, so progress matches elapsed time even if the
+    /// system suspended the app in the background.
+    private func suspendTiming() {
+        lastTickDate = nil
+    }
+
+    private func resumeTimingIfNeeded() {
+        guard !isCountdown, !isGlobalPaused, !allCompleted else {
+            lastTickDate = Date()
+            return
+        }
+        let now = Date()
+        if let last = lastTickDate {
+            let gap = max(0, now.timeIntervalSince(last))
+            if gap > 0 {
+                updateAllGroups(elapsed: gap)
+            }
+        }
+        lastTickDate = now
     }
 
     private func updateAllGroups(elapsed: TimeInterval) {
@@ -341,19 +448,132 @@ struct PaceRunMultiTrainingView: View {
                 }
             }
         }
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.update(state)
+        }
         if !groupStates.isEmpty && groupStates.allSatisfy({ $0.isCompleted }) {
             timer?.invalidate()
             saveTrainingRecord(completed: true)
+            if let final = liveActivityState(isComplete: true) {
+                TrainingLiveActivityManager.shared.end(final: final, keepVisibleFor: 90)
+            }
         }
+    }
+
+    // MARK: - Live Activity snapshot
+
+    private static func mmss(_ value: Double) -> String {
+        let seconds = max(0, Int(value.rounded()))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func liveActivityState(isComplete: Bool = false) -> TrainingActivityAttributes.ContentState? {
+        guard !training.groups.isEmpty, !groupStates.isEmpty else { return nil }
+        let index = groupStates.firstIndex(where: { !$0.isCompleted }) ?? (groupStates.count - 1)
+        guard index < training.groups.count else { return nil }
+        let state = groupStates[index]
+        let group = training.groups[index]
+        let segmentCount = max(1, group.segmentCount)
+        let segment = min(max(state.currentSegment, 1), segmentCount)
+        let distance = Int(group.distanceForSegment(segment - 1).rounded())
+        let sets = group.effectiveSetCount
+        let set = min(max(state.currentSet, 1), sets)
+        let paused = state.isPaused || isGlobalPaused
+        let complete = isComplete || state.isCompleted
+
+        let phase: String
+        if complete {
+            phase = "completed".localized
+        } else if state.phase == .resting {
+            phase = state.restKind == .set ? "set_rest_label".localized : "resting".localized
+        } else {
+            phase = String(format: "current_segment".localized, segment, segmentCount) + " · \(distance) m"
+        }
+
+        let detail: String
+        if complete {
+            detail = String(format: "live_total_format".localized, group.totalDistance)
+        } else if state.phase == .resting {
+            // Planned rest, not the live remaining value: the widget ticks its
+            // own clock, and a label that changes every second would force a
+            // repaint per second.
+            let plannedRest = state.restKind == .set
+                ? group.effectiveSetRest
+                : group.restAfterSegment(max(0, segment - 1))
+            detail = String(format: "live_rest_format".localized, Self.mmss(plannedRest))
+        } else {
+            detail = String(format: "live_target_format".localized, Self.mmss(group.timeForSegment(segment - 1)))
+        }
+
+        let step = sets > 1
+            ? String(format: "live_set_step".localized, set, sets) + "  \(segment)/\(segmentCount)"
+            : "\(segment) / \(segmentCount)"
+
+        let status: String
+        if complete { status = "completed".localized }
+        else if paused { status = "paused".localized }
+        else if state.phase == .resting { status = "resting".localized }
+        else { status = "running".localized }
+
+        let endDate: Date? = (paused || complete) ? nil : Date().addingTimeInterval(max(0, state.remainingTime))
+
+        return .init(
+            kindLabel: "pace_run".localized,
+            planTitle: training.name,
+            phaseLabel: phase,
+            detailLabel: detail,
+            stepLabel: step,
+            compactLabel: "\(segment)/\(segmentCount)",
+            remainingText: Self.mmss(state.remainingTime),
+            endDate: endDate,
+            progress: overallProgress(activeIndex: index, state: state),
+            accentHex: group.colorHex,
+            isPaused: paused,
+            isComplete: complete,
+            statusLabel: status
+        )
+    }
+
+    private func overallProgress(activeIndex: Int, state: PaceRunGroupState) -> Double {
+        let perGroup = training.groups.map { max(1, $0.segmentCount) * $0.effectiveSetCount }
+        let total = max(1, perGroup.reduce(0, +))
+        var done = 0.0
+        for (i, groupState) in groupStates.enumerated() where i < perGroup.count {
+            if groupState.isCompleted {
+                done += Double(perGroup[i])
+            } else if i == activeIndex {
+                let group = training.groups[i]
+                let segmentCount = max(1, group.segmentCount)
+                let segment = min(max(state.currentSegment, 1), segmentCount)
+                done += Double((min(max(state.currentSet, 1), group.effectiveSetCount) - 1) * segmentCount + (segment - 1))
+                if state.phase == .running {
+                    let planned = max(0.001, group.timeForSegment(segment - 1))
+                    done += max(0, min(1, 1 - state.remainingTime / planned))
+                }
+            }
+        }
+        return min(1, max(0, done / Double(total)))
     }
 
     private func togglePauseGroup(_ index: Int) {
         guard index >= 0, index < groupStates.count else { return }
         groupStates[index].isPaused.toggle()
+        // Reset the shared clock anchor so the paused interval is not replayed
+        // as elapsed time when the group resumes.
+        lastTickDate = Date()
+        if let state = liveActivityState() { TrainingLiveActivityManager.shared.update(state) }
     }
-    private func toggleGlobalPause() { isGlobalPaused.toggle() }
+    private func toggleGlobalPause() {
+        isGlobalPaused.toggle()
+        lastTickDate = Date()
+        if let state = liveActivityState() { TrainingLiveActivityManager.shared.update(state) }
+    }
     private func stopTraining() {
         timer?.invalidate()
+        TrainingLiveActivityManager.shared.end(
+            final: liveActivityState(isComplete: allCompleted),
+            keepVisibleFor: allCompleted ? 90 : 0
+        )
         if sessionStartedAt != nil {
             saveTrainingRecord(completed: false)
         }
@@ -361,6 +581,7 @@ struct PaceRunMultiTrainingView: View {
     }
     private func restartTraining() {
         timer?.invalidate()
+        TrainingLiveActivityManager.shared.end()
         isGlobalPaused = false
         initializeStates()
         isCountdown = true
@@ -404,6 +625,13 @@ struct PaceRunGroupTrainingCard: View {
     private var groupColor: Color { Color(hex: group.colorHex) ?? .orange }
     private var segmentDistances: [Int] { group.segmentDistanceValues() }
 
+    private var phaseAccentColor: Color {
+        if state.isCompleted { return groupColor }
+        if state.isPaused { return DS.Colors.warning }
+        if state.phase == .resting { return DS.Colors.rest }
+        return groupColor
+    }
+
     // Progress within current segment (0→1)
     private var segmentProgress: Double {
         if state.phase == .resting { return 1 }
@@ -438,6 +666,11 @@ struct PaceRunGroupTrainingCard: View {
             }
         }
         .dsCard(radius: DS.Radius.lg, padding: 0)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .strokeBorder(phaseAccentColor.opacity(state.isCompleted ? 0.35 : 0.28), lineWidth: 1)
+        )
+        .animation(.spring(duration: 0.35), value: state.isCompleted)
         .onAppear {
             speedUnit = StorageManager.shared.loadSettings().speedUnit
         }
@@ -447,8 +680,11 @@ struct PaceRunGroupTrainingCard: View {
     private var completedContent: some View {
         HStack(spacing: 16) {
             Circle()
-                .fill(groupColor.opacity(0.15))
+                .fill(groupColor.opacity(0.16))
                 .frame(width: 44, height: 44)
+                .overlay(
+                    Circle().strokeBorder(groupColor.opacity(0.35), lineWidth: 1)
+                )
                 .overlay(
                     Image(systemName: "checkmark")
                         .font(.system(size: 18, weight: .bold))
@@ -460,15 +696,16 @@ struct PaceRunGroupTrainingCard: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("completed".localized)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(groupColor)
             }
 
             Spacer()
 
             Text("\(group.totalDistance)\("unit_meter_short".localized)")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(DS.Colors.textTertiary)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(DS.Colors.textSecondary)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
@@ -538,8 +775,10 @@ struct PaceRunGroupTrainingCard: View {
                     Text("/ \(group.segmentCount) \("segments".localized)")
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: 88)
 
                 // Divider
                 Rectangle()
@@ -550,14 +789,15 @@ struct PaceRunGroupTrainingCard: View {
                 VStack(spacing: 2) {
                     Text(remainingTimeText)
                         .font(DS.Typo.timerLarge)
-                        .foregroundStyle(state.phase == .resting ? Color(white: 0.75) : .white)
+                        .foregroundStyle(state.isPaused ? DS.Colors.warning : (state.phase == .resting ? DS.Colors.rest : .white))
                         .monospacedDigit()
-                        .minimumScaleFactor(0.6)
+                        .minimumScaleFactor(0.72)
                         .lineLimit(1)
                     Text("seconds".localized)
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
                 }
+                .padding(.horizontal, 6)
                 .frame(maxWidth: .infinity)
 
                 // Divider
@@ -571,11 +811,13 @@ struct PaceRunGroupTrainingCard: View {
                         .font(DS.Typo.timerSmall)
                         .foregroundStyle(.white)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     Text(speedUnitLabel)
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: 88)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     speedUnit = (speedUnit + 1) % 3
@@ -584,7 +826,7 @@ struct PaceRunGroupTrainingCard: View {
                     StorageManager.shared.saveSettings(settings)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.vertical, 18)
 
             // ── Up-next preview (audit A4) ───────────────────────
@@ -615,6 +857,7 @@ struct PaceRunGroupTrainingCard: View {
                         .background(state.isPaused ? groupColor : DS.Colors.divider)
                         .clipShape(Circle())
                 }
+                .accessibilityLabel(state.isPaused ? "resume".localized : "pause".localized)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 18)
@@ -628,26 +871,20 @@ struct PaceRunGroupTrainingCard: View {
                 Image(systemName: "pause.fill")
                     .font(.system(size: 10, weight: .bold))
                 Text("paused".localized)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
             } else if state.phase == .resting {
                 Image(systemName: "pause.circle.fill")
                     .font(.system(size: 10, weight: .bold))
                 Text("resting".localized)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
             } else {
                 // Audit C4: header already carries the color dot; the pill
                 // doesn't need a second one.
                 Text("running".localized)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
             }
         }
-        .foregroundStyle(state.isPaused ? DS.Colors.warning : (state.phase == .resting ? Color(white: 0.75) : groupColor))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(
-            (state.isPaused ? DS.Colors.warning : (state.phase == .resting ? Color(white: 0.75) : groupColor)).opacity(0.15)
-        )
-        .clipShape(Capsule())
+        .foregroundStyle(phaseAccentColor)
     }
 
     private var paceString: String {
@@ -828,8 +1065,9 @@ struct SegmentTrackView: View {
                     .overlay {
                         if showInlineDistance && width > 28 {
                             Text("\(distanceForSegment(idx))\("unit_meter_short".localized)")
-                                .font(.system(size: TrackVisualStyle.inlineLabelSize, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.white.opacity(seg <= clampedCurrentSegment ? 0.95 : 0.7))
+                                .font(.system(size: TrackVisualStyle.inlineLabelSize, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.white.opacity(seg <= clampedCurrentSegment ? 0.95 : 0.75))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                                 .padding(.horizontal, 2)
@@ -934,8 +1172,9 @@ struct SegmentTrackView: View {
                     let clampedX = min(max(rawX, 22), geo.size.width - 22)
 
                     Text("\(distance)\("unit_meter_short".localized)")
-                        .font(.system(size: 9, weight: .black, design: .monospaced))
-                        .foregroundStyle(isFirst || isLast ? .white : .white.opacity(0.5))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(isFirst || isLast ? .white : .white.opacity(0.62))
                         .frame(width: 44) // Constant width to help centering
                         .position(x: clampedX, y: 22)
                 }
@@ -1017,3 +1256,4 @@ struct SegmentTrackView: View {
         )
     )
 }
+

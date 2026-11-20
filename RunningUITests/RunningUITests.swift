@@ -87,7 +87,7 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(addPlan.waitForExistence(timeout: 3))
         addPlan.tap()
 
-        let save = app.navigationBars.buttons["Save"]
+        let save = app.buttons["pace_editor_save_bar_button"]
         XCTAssertTrue(save.waitForExistence(timeout: 3))
         save.tap()
 
@@ -106,7 +106,7 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(addPlan.waitForExistence(timeout: 3))
         addPlan.tap()
 
-        let save = app.navigationBars.buttons["Save"]
+        let save = app.buttons["interval_editor_save_bar_button"]
         XCTAssertTrue(save.waitForExistence(timeout: 3))
         save.tap()
 
@@ -334,7 +334,7 @@ final class RunningUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars.staticTexts["小栏架栏距"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.scrollViews["mini_hurdle_scroll"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["摆栏设定"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["选择运动员"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["GT 下肢长（大转子高度）"].waitForExistence(timeout: 3))
 
         captureReferenceScreenshot(name: "mini-hurdle-top")
@@ -342,7 +342,7 @@ final class RunningUITests: XCTestCase {
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         scrollView.swipeUp()
 
-        XCTAssertTrue(app.staticTexts["目标栏距方案"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["摆点方案"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["本次摆栏结果"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["2.02 米"].waitForExistence(timeout: 3))
 
@@ -364,7 +364,7 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(miniHurdleEntry.waitForExistence(timeout: 5))
         miniHurdleEntry.tap()
 
-        XCTAssertTrue(app.staticTexts["摆栏设定"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["选择运动员"].waitForExistence(timeout: 8))
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
 
@@ -398,7 +398,7 @@ final class RunningUITests: XCTestCase {
         ]
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["摆栏设定"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["选择运动员"].waitForExistence(timeout: 8))
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
 
@@ -436,7 +436,7 @@ final class RunningUITests: XCTestCase {
 
         let scrollView = app.scrollViews["mini_hurdle_scroll"]
         XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["先确认 GT 高度"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["方法与依据"].waitForExistence(timeout: 5))
 
         // Audit MH-10: expand the collapsed diagram before asserting it.
         let illustrationToggle = app.buttons["mini_hurdle_measurement_illustration_toggle"]
@@ -724,7 +724,7 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(addPlan.waitForExistence(timeout: 3))
         addPlan.tap()
 
-        let save = app.navigationBars.buttons["Save"]
+        let save = app.buttons["pace_editor_save_bar_button"]
         XCTAssertTrue(save.waitForExistence(timeout: 3))
         save.tap()
 
@@ -747,7 +747,7 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(addPlan.waitForExistence(timeout: 3))
         addPlan.tap()
 
-        let save = app.navigationBars.buttons["Save"]
+        let save = app.buttons["interval_editor_save_bar_button"]
         XCTAssertTrue(save.waitForExistence(timeout: 3))
         save.tap()
 
@@ -766,7 +766,9 @@ final class RunningUITests: XCTestCase {
         startButton.tap()
         stopActiveTraining(app)
 
-        let historyTab = app.segmentedControls.buttons["History"]
+        let historyTab = app.buttons.matching(
+            NSPredicate(format: "identifier == %@ AND label == %@", "pace_setup_tab_picker", "History")
+        ).firstMatch
         XCTAssertTrue(historyTab.waitForExistence(timeout: 3))
         historyTab.tap()
 
@@ -778,7 +780,9 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 3))
         edit.tap()
 
-        let createTab = app.segmentedControls.buttons["Create"]
+        let createTab = app.buttons.matching(
+            NSPredicate(format: "identifier == %@ AND label == %@", "pace_setup_tab_picker", "Create")
+        ).firstMatch
         XCTAssertTrue(createTab.waitForExistence(timeout: 3))
 
         XCTAssertTrue(startButton.waitForExistence(timeout: 3))

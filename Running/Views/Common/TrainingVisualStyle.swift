@@ -19,14 +19,15 @@ struct TrainingSelectionIndicator: View {
             Circle()
                 .fill(isSelected ? accent : Color.clear)
             Circle()
-                .stroke(isSelected ? accent : DS.Colors.border, lineWidth: 1.5)
+                .stroke(isSelected ? accent : DS.Colors.border, lineWidth: 1)
             if isSelected {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Colors.bg)
             }
         }
         .frame(width: 22, height: 22)
+        .animation(DS.Motion.curve, value: isSelected)
     }
 }
 
@@ -34,7 +35,7 @@ struct TrainingSelectionIndicator: View {
 
 extension View {
 
-    /// Standard card container — solid dark fill, 1px border.
+    /// Quiet card container — one surface step, one hairline.
     func trainingCardContainer(cornerRadius: CGFloat = DS.Radius.lg) -> some View {
         self
             .background(
@@ -43,11 +44,12 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(DS.Colors.border, lineWidth: 1)
+                    .stroke(DS.Colors.borderLight, lineWidth: 1)
             )
     }
 
-    /// Selectable card with accent left bar and solid border.
+    /// Selectable card — selection is a surface step plus an accent hairline,
+    /// never a tinted wash or an extra accent bar.
     func trainingSelectableCardContainer(
         accent: Color,
         isSelected: Bool,
@@ -56,46 +58,48 @@ extension View {
         self
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(DS.Colors.card) // Always strictly dark card, no muddy tinted glass
+                    .fill(isSelected ? DS.Colors.cardHover : DS.Colors.card)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    // Brighter stroke on selection instead of full background tint
-                    .stroke(isSelected ? accent.opacity(0.8) : DS.Colors.border, lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(
+                        isSelected ? accent.opacity(0.40) : DS.Colors.borderLight,
+                        lineWidth: 1
+                    )
             )
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(accent)
-                    .frame(width: 4, height: 36)
-                    .padding(.leading, -1) // overlapping the stroke
-                    .opacity(isSelected ? 1 : 0)
-            }
     }
 
-    /// Primary action button — solid accent fill when enabled, muted when disabled.
-    /// Height: 56, cornerRadius: 14 — unified across all pages.
+    /// Primary action — the single bright control on a screen: an off-white
+    /// key from the ramp with dark text. Works for every discipline accent.
     func trainingPrimaryActionSurface(
         isEnabled: Bool,
-        cornerRadius: CGFloat = 14,
+        cornerRadius: CGFloat = DS.Radius.md,
         colors: [Color] = [DS.Colors.paceRun]
     ) -> some View {
-        let accent = colors.first ?? DS.Colors.paceRun
-        return self
+        self
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(isEnabled ? accent : DS.Colors.cardHover)
+                    .fill(isEnabled ? DS.Colors.textPrimary : DS.Colors.card)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(isEnabled ? accent.opacity(0.30) : DS.Colors.border, lineWidth: 1)
+                    .stroke(
+                        isEnabled ? Color.white.opacity(0.20) : DS.Colors.borderLight,
+                        lineWidth: 1
+                    )
             )
+    }
+
+    /// Text colour that belongs on a primary action surface.
+    func trainingPrimaryActionForeground(isEnabled: Bool) -> some View {
+        self.foregroundStyle(isEnabled ? DS.Colors.bg : DS.Colors.textTertiary)
     }
 
     /// Training control button — pause/resume (neutral or accent).
     func trainingControlSurface(
         highlighted: Bool,
         accent: Color,
-        cornerRadius: CGFloat = 14
+        cornerRadius: CGFloat = DS.Radius.md
     ) -> some View {
         self
             .background(
@@ -104,12 +108,12 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(highlighted ? accent.opacity(0.35) : DS.Colors.border, lineWidth: 1)
+                    .stroke(highlighted ? accent.opacity(0.40) : DS.Colors.borderLight, lineWidth: 1)
             )
     }
 
-    /// Stop button — danger style with error color border.
-    func trainingStopSurface(cornerRadius: CGFloat = 14) -> some View {
+    /// Stop button — quiet surface with a semantic hairline.
+    func trainingStopSurface(cornerRadius: CGFloat = DS.Radius.md) -> some View {
         self
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -117,7 +121,7 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(DS.Colors.error.opacity(0.40), lineWidth: 1)
+                    .stroke(DS.Colors.error.opacity(0.35), lineWidth: 1)
             )
     }
 }

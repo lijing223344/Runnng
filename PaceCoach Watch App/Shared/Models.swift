@@ -92,7 +92,7 @@ struct PaceRunGroup: Codable, Identifiable {
 
     init(
         id: UUID = UUID(),
-        name: String = "default_group_name".localized,
+        name: String = PaceRunGroup.defaultName,
         colorHex: String = "#FF5733",
         totalDistance: Int = 800,
         segmentDistance: Int = 50,
@@ -100,9 +100,9 @@ struct PaceRunGroup: Codable, Identifiable {
         countdownSeconds: Int = 3,
         setCount: Int? = nil,
         setRestTime: Double? = nil,
-        segmentSound: SoundType = .whistleShort,
-        startSound: SoundType = .whistleShort,
-        endSound: SoundType = .whistleShort,
+        segmentSound: SoundType = .splitTick,
+        startSound: SoundType = .startTriad,
+        endSound: SoundType = .finishArpeggio,
         sortOrder: Int = 0,
         customSegments: [CustomSegment]? = nil,
         intensityPercent: Double = 100
@@ -256,9 +256,9 @@ struct PaceRunGroup: Codable, Identifiable {
         self.countdownSeconds = try c.decodeIfPresent(Int.self, forKey: .countdownSeconds) ?? 3
         self.setCount = try c.decodeIfPresent(Int.self, forKey: .setCount)
         self.setRestTime = try c.decodeIfPresent(Double.self, forKey: .setRestTime)
-        self.segmentSound = try c.decodeIfPresent(SoundType.self, forKey: .segmentSound) ?? .whistleShort
-        self.startSound = try c.decodeIfPresent(SoundType.self, forKey: .startSound) ?? .whistleShort
-        self.endSound = try c.decodeIfPresent(SoundType.self, forKey: .endSound) ?? .whistleShort
+        self.segmentSound = try c.decodeIfPresent(SoundType.self, forKey: .segmentSound) ?? .splitTick
+        self.startSound = try c.decodeIfPresent(SoundType.self, forKey: .startSound) ?? .startTriad
+        self.endSound = try c.decodeIfPresent(SoundType.self, forKey: .endSound) ?? .finishArpeggio
         self.sortOrder = try c.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
         self.customSegments = try c.decodeIfPresent([CustomSegment].self, forKey: .customSegments)
         self.intensityPercent = try c.decodeIfPresent(Double.self, forKey: .intensityPercent) ?? 100
@@ -344,7 +344,7 @@ struct IntervalGroup: Codable, Identifiable {
 
     init(
         id: UUID = UUID(),
-        name: String = "default_group_name".localized,
+        name: String = IntervalGroup.defaultName,
         colorHex: String = "#FF5733",
         runDistance: Int = 100,
         runTime: Int = 15,
@@ -353,9 +353,9 @@ struct IntervalGroup: Codable, Identifiable {
         countdownSeconds: Int? = nil,
         setCount: Int? = nil,
         setRestTime: Double? = nil,
-        startSound: SoundType = .whistleShort,
-        restSound: SoundType = .whistleShort,
-        endSound: SoundType = .whistleShort,
+        startSound: SoundType = .startTriad,
+        restSound: SoundType = .restBell,
+        endSound: SoundType = .finishArpeggio,
         sortOrder: Int = 0,
         customRepeats: [IntervalRepeatConfig]? = nil,
         intensityPercent: Double = 100
@@ -449,9 +449,9 @@ struct IntervalGroup: Codable, Identifiable {
         self.countdownSeconds = try c.decodeIfPresent(Int.self, forKey: .countdownSeconds)
         self.setCount = try c.decodeIfPresent(Int.self, forKey: .setCount)
         self.setRestTime = try c.decodeIfPresent(Double.self, forKey: .setRestTime)
-        self.startSound = try c.decodeIfPresent(SoundType.self, forKey: .startSound) ?? .whistleShort
-        self.restSound = try c.decodeIfPresent(SoundType.self, forKey: .restSound) ?? .whistleShort
-        self.endSound = try c.decodeIfPresent(SoundType.self, forKey: .endSound) ?? .whistleShort
+        self.startSound = try c.decodeIfPresent(SoundType.self, forKey: .startSound) ?? .startTriad
+        self.restSound = try c.decodeIfPresent(SoundType.self, forKey: .restSound) ?? .restBell
+        self.endSound = try c.decodeIfPresent(SoundType.self, forKey: .endSound) ?? .finishArpeggio
         self.sortOrder = try c.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
         self.customRepeats = try c.decodeIfPresent([IntervalRepeatConfig].self, forKey: .customRepeats)
         self.intensityPercent = try c.decodeIfPresent(Double.self, forKey: .intensityPercent) ?? 100

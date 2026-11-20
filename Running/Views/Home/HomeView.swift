@@ -2,10 +2,19 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var localization = LocalizationManager.shared
+    @ObservedObject private var storage = StorageManager.shared
     @State private var selectedTab: HomeTab = .training
+    @State private var weekSessions = 0
+    @State private var weekSeconds: TimeInterval = 0
+    @State private var lastSessionDate: Date?
 
     private enum HomeTab { case training, history, settings }
+
+    // Dates follow the interface language, not the device region, so an
+    // English session does not show a Chinese date line.
+    private var displayLocale: Locale { localization.locale }
 
     var body: some View {
         NavigationStack {
@@ -13,7 +22,6 @@ struct HomeView: View {
                 DS.Colors.bg.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Content — cross-fade on tab switch (audit C3)
                     Group {
                         switch selectedTab {
                         case .training: trainingContent
@@ -24,7 +32,7 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .id(selectedTab)
                     .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.15), value: selectedTab)
+                    .animation(reduceMotion ? nil : DS.Motion.curve, value: selectedTab)
 
                     bottomNav
                 }
@@ -41,39 +49,102 @@ struct HomeView: View {
 
     private var trainingContent: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 28) {
-                header
-                cardsSection
+            VStack(alignment: .leading, spacing: 0) {
+                DSPageHeader(
+                    title: "app_name".localized,
+                    subtitle: "training_subtitle".localized,
+                    dateLine: Date.now.formatted(
+                        Date.FormatStyle(date: .abbreviated, time: .omitted).locale(displayLocale)
+                    ),
+                    tick: DS.Colors.paceRun
+                )
+
+                weekBand
+                    .padding(.top, DS.Space.xxl)
+
+                DSSectionLabel(text: "training_items".localized)
+                    .padding(.top, DS.Space.xxxl)
+                    .padding(.bottom, DS.Space.sm)
+
+                entriesPanel
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            // Audit A6: clear the bottom nav bar (≈88pt) with margin so the
-            // 4th card can scroll fully clear instead of hiding behind it.
-            .padding(.bottom, 124)
+            .padding(.horizontal, DS.Space.page)
+            .padding(.top, DS.Space.sm)
+            .padding(.bottom, 112)
+            .dsReadableColumn()
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(Date.now.formatted(date: .abbreviated, time: .omitted))
-                .font(.system(size: 13, weight: .medium))
+    // MARK: - This week (the screen's one moment: real figures)
+
+    private var weekBand: some View {
+        VStack(alignment: .leading, spacing: DS.Space.md) {
+            Text("this_week".localized)
+                .font(DS.Typo.meta)
                 .foregroundStyle(DS.Colors.textTertiary)
-                .padding(.bottom, 2)
 
-            Text("app_name".localized)
-                .font(.system(size: 32, weight: .bold))
-                .tracking(-1)
-                .foregroundStyle(.white)
-
-            Text("training_subtitle".localized)
-                .font(.system(size: 15))
-                .foregroundStyle(DS.Colors.textSecondary)
+            HStack(alignment: .top, spacing: 0) {
+                figureColumn(
+                    value: "\(weekSessions)",
+                    label: "sessions".localized
+                )
+                columnDivider
+                figureColumn(
+                    value: formatDuration(weekSeconds),
+                    label: "total_time".localized
+                )
+                .padding(.leading, DS.Space.md)
+                columnDivider
+                figureColumn(
+                    value: lastSessionDate.map {
+                        $0.formatted(.dateTime.month(.defaultDigits).day().locale(displayLocale))
+                    } ?? "—",
+                    label: "last_session".localized
+                )
+                .padding(.leading, DS.Space.md)
+            }
         }
+        .padding(DS.Space.lg)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .fill(DS.Colors.card)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(DS.Colors.borderLight, lineWidth: 1)
+        )
+        .padding(.top, DS.Space.lg)
     }
 
-    private var cardsSection: some View {
-        VStack(spacing: 14) {
-            HomeEntryCard(
+    private func figureColumn(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: DS.Space.xxs) {
+            Text(value)
+                .font(DS.Typo.figure)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .foregroundStyle(DS.Colors.textPrimary)
+            Text(label)
+                .font(DS.Typo.meta)
+                .foregroundStyle(DS.Colors.textTertiary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.trailing, DS.Space.md)
+    }
+
+    private var columnDivider: some View {
+        Rectangle()
+            .fill(DS.Colors.divider)
+            .frame(width: 1, height: 34)
+            .padding(.top, DS.Space.xxs)
+    }
+
+    // MARK: - Entries
+
+    private var entriesPanel: some View {
+        VStack(spacing: 0) {
+            entryRow(
                 icon: "figure.run",
                 title: "pace_run".localized,
                 subtitle: "pace_run_desc".localized,
@@ -81,7 +152,8 @@ struct HomeView: View {
                 accessibilityID: "pace_manage_button",
                 destination: AnyView(PaceRunSetupView())
             )
-            HomeEntryCard(
+            rowDivider
+            entryRow(
                 icon: "repeat",
                 title: "interval_training".localized,
                 subtitle: "interval_training_desc".localized,
@@ -89,7 +161,8 @@ struct HomeView: View {
                 accessibilityID: "interval_manage_button",
                 destination: AnyView(IntervalTrainingSetupView())
             )
-            HomeEntryCard(
+            rowDivider
+            entryRow(
                 icon: "gauge.with.needle",
                 title: "model_400_title".localized,
                 subtitle: "model_400_home_desc".localized,
@@ -97,7 +170,8 @@ struct HomeView: View {
                 accessibilityID: "model_400_open_button",
                 destination: AnyView(FourHundredModelGeneratorView())
             )
-            HomeEntryCard(
+            rowDivider
+            entryRow(
                 icon: "ruler",
                 title: "mini_hurdle_title".localized,
                 subtitle: "mini_hurdle_home_desc".localized,
@@ -106,6 +180,66 @@ struct HomeView: View {
                 destination: AnyView(MiniHurdleSpacingView())
             )
         }
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .fill(DS.Colors.card)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(DS.Colors.borderLight, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+    }
+
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(DS.Colors.divider)
+            .frame(height: 1)
+            .padding(.leading, 48)
+    }
+
+    private func entryRow(
+        icon: String,
+        title: String,
+        subtitle: String,
+        accent: Color,
+        accessibilityID: String,
+        destination: AnyView
+    ) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: DS.Space.md) {
+                DSLaneTick(color: accent)
+
+                Image(systemName: icon)
+                    .font(.system(size: icon == "ruler" ? 15 : 17, weight: .regular))
+                    .foregroundStyle(DS.Colors.textSecondary)
+                    .frame(width: 22, alignment: .center)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(DS.Typo.rowTitle)
+                        .foregroundStyle(DS.Colors.textPrimary)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(DS.Typo.rowDetail)
+                        .foregroundStyle(DS.Colors.textTertiary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: DS.Space.sm)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Colors.textHint)
+            }
+            .padding(.horizontal, DS.Space.lg)
+            .padding(.vertical, DS.Space.sm + 2)
+            .frame(minHeight: 72)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityID)
     }
 
     // MARK: - Bottom Nav
@@ -116,128 +250,60 @@ struct HomeView: View {
             tabButton(icon: "clock.arrow.circlepath", label: "history".localized, tab: .history, accessibilityID: "home_tab_history")
             tabButton(icon: "gearshape", label: "settings".localized, tab: .settings, accessibilityID: "home_tab_settings")
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 10)
-        .padding(.bottom, 2)
+        .padding(.horizontal, DS.Space.sm)
+        .padding(.top, DS.Space.sm)
+        .padding(.bottom, DS.Space.xxs)
         .background(
             DS.Colors.card
                 .overlay(alignment: .top) {
-                    Rectangle().fill(DS.Colors.border).frame(height: 1)
+                    Rectangle().fill(DS.Colors.divider).frame(height: 1)
                 }
         )
     }
 
     private func tabButton(icon: String, label: String, tab: HomeTab, accessibilityID: String) -> some View {
         let active = selectedTab == tab
-        return Button { selectedTab = tab } label: {
-            VStack(spacing: 4) {
+        return Button {
+            guard selectedTab != tab else { return }
+            selectedTab = tab
+            UISelectionFeedbackGenerator().selectionChanged()
+        } label: {
+            VStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: active ? .semibold : .regular))
-                    .foregroundStyle(active ? .white : DS.Colors.textTertiary)
-                // Audit C3: 10pt labels failed the 11pt minimum readable size.
+                    .font(.system(size: 19, weight: .regular))
+                    .foregroundStyle(active ? DS.Colors.textPrimary : DS.Colors.textTertiary)
                 Text(label)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(active ? .white : DS.Colors.textTertiary)
+                    .foregroundStyle(active ? DS.Colors.textPrimary : DS.Colors.textTertiary)
+                DSLaneRule(color: active ? DS.Colors.paceRun : Color.clear, width: 14)
+                    .padding(.top, 1)
             }
-            .animation(.easeInOut(duration: 0.15), value: active)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.top, DS.Space.xxs)
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(active ? .isSelected : [])
         .accessibilityIdentifier(accessibilityID)
     }
 
-    private func refreshDashboard() {}
-}
+    // MARK: - Data
 
-// MARK: - Entry Card
+    private func refreshDashboard() {
+        let records = storage.loadTrainingRecords()
+        let calendar = Calendar.current
+        let week = calendar.dateInterval(of: .weekOfYear, for: Date())
+        let inWeek = records.filter { week?.contains($0.startTime) ?? false }
+        weekSessions = inWeek.count
+        weekSeconds = inWeek.reduce(0) { $0 + max(0, $1.endTime.timeIntervalSince($1.startTime)) }
+        lastSessionDate = records.map(\.startTime).max()
+    }
 
-private struct HomeEntryCard: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let accent: Color
-    let accessibilityID: String
-    let destination: AnyView
-
-    var body: some View {
-        NavigationLink(destination: destination) {
-            ZStack {
-                // Background — subtle single-tone shading
-                LinearGradient(
-                    colors: [accent, accent.opacity(0.85)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                // Decorative dot grid (top-right area)
-                Canvas { context, size in
-                    let dotSize: CGFloat = 2.0
-                    let spacing: CGFloat = 12.0
-                    let cols = 5
-                    let rows = 4
-                    let originX = size.width - CGFloat(cols) * spacing - 16
-                    let originY: CGFloat = 14
-                    for row in 0..<rows {
-                        for col in 0..<cols {
-                            let x = originX + CGFloat(col) * spacing
-                            let y = originY + CGFloat(row) * spacing
-                            let rect = CGRect(x: x, y: y, width: dotSize, height: dotSize)
-                            context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.18)))
-                        }
-                    }
-                }
-                .allowsHitTesting(false)
-
-                // Watermark Icon — large, offset bottom-right
-                Image(systemName: icon)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 90, height: 90)
-                    .foregroundStyle(Color.white.opacity(0.08))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .offset(x: 10, y: 10)
-
-                // Content
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        // Icon + Title row
-                        HStack(spacing: 10) {
-                            Image(systemName: icon)
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(width: 34, height: 34)
-                                .background(Circle().fill(Color.white.opacity(0.18)))
-
-                            Text(title)
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-
-                        // Subtitle
-                        Text(subtitle)
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.white.opacity(0.7))
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    // Arrow
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.white.opacity(0.18)))
-                }
-                .padding(20)
-            }
-        }
-        .buttonStyle(ScaleButtonStyle())
-        .accessibilityIdentifier(accessibilityID)
-        .frame(height: 140)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: accent.opacity(0.20), radius: 12, x: 0, y: 6)
+    private func formatDuration(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval.rounded()))
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
+        return String(format: "%02d:%02d", m, s)
     }
 }

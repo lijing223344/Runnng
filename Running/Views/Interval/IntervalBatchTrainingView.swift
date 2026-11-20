@@ -18,7 +18,7 @@ struct IntervalBatchTrainingView: View {
     @State private var countdownSeconds = 3
     @State private var isCountdown = true
     @State private var timer: Timer?
-    @State private var lastTickUptime: TimeInterval = 0
+    @State private var lastTickDate: Date?
     @State private var showConfirmStop = false
     @State private var sessionStartedAt: Date?
 
@@ -52,10 +52,19 @@ struct IntervalBatchTrainingView: View {
         .onDisappear {
             timer?.invalidate()
             soundManager.endTrainingRuntimeSupport()
+            TrainingLiveActivityManager.shared.end()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                lastTickUptime = ProcessInfo.processInfo.systemUptime
+            switch phase {
+            case .active:
+                resumeTimingIfNeeded()
+            case .background, .inactive:
+                // Leaving the foreground ends the island immediately: a card
+                // must not keep showing a session that is no longer running.
+                TrainingLiveActivityManager.shared.endAllImmediately()
+                suspendTiming()
+            @unknown default:
+                break
             }
         }
         .alert("confirm_stop".localized, isPresented: $showConfirmStop) {
@@ -65,16 +74,29 @@ struct IntervalBatchTrainingView: View {
     }
 
     private var countdownOverlay: some View {
-        VStack(spacing: 16) {
+        let totalGroups = session.plans.reduce(0) { $0 + $1.training.groups.count }
+        let sessionTitle = session.plans.map(\.title).joined(separator: " · ")
+        return VStack(spacing: 16) {
             Spacer()
+            if !sessionTitle.isEmpty {
+                Text(sessionTitle)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, 32)
+            }
             Text("countdown_start".localized)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .tracking(2)
                 .textCase(.uppercase)
+            Text(String(format: "countdown_groups_hint".localized, totalGroups))
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
             Text("\(countdownSeconds)")
-                .font(.system(size: 160, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+                .font(DS.Typo.countdownHero)
+                .foregroundStyle(DS.Colors.interval)
                 .monospacedDigit()
                 .contentTransition(.numericText(countsDown: true))
                 .animation(.spring(duration: 0.3), value: countdownSeconds)
@@ -130,7 +152,7 @@ struct IntervalBatchTrainingView: View {
     }
 
     private func sectionAccent(for launchPlan: IntervalLaunchPlan) -> Color {
-        Color(hex: launchPlan.training.groups.first?.colorHex ?? "") ?? .orange
+        Color(hex: launchPlan.training.groups.first?.colorHex ?? "") ?? DS.Colors.interval
     }
 
     private var bottomControls: some View {
@@ -190,6 +212,7 @@ struct IntervalBatchTrainingView: View {
         }
         countdownSeconds = max(1, session.plans.first?.training.countdownSeconds ?? 3)
         sessionStartedAt = nil
+        lastTickDate = nil
     }
 
     private func startCountdown() {
@@ -223,20 +246,42 @@ struct IntervalBatchTrainingView: View {
                 planStates[planIndex].groupStates[groupIndex].isSetRest = false
             }
         }
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.begin(trainingID: session.id, state: state)
+        }
         startTimer()
     }
 
     private func startTimer() {
-        lastTickUptime = ProcessInfo.processInfo.systemUptime
+        lastTickDate = Date()
         let mainTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
-            let now = ProcessInfo.processInfo.systemUptime
-            let rawElapsed = max(0, now - self.lastTickUptime)
-            self.lastTickUptime = now
+            let now = Date()
+            let rawElapsed = max(0, now.timeIntervalSince(lastTickDate ?? now))
+            lastTickDate = now
             let elapsed = min(rawElapsed, self.maxTickElapsed)
             self.updateAllPlans(elapsed: elapsed)
         }
         RunLoop.main.add(mainTimer, forMode: .common)
         timer = mainTimer
+    }
+
+    private func suspendTiming() {
+        lastTickDate = nil
+    }
+
+    private func resumeTimingIfNeeded() {
+        guard !isCountdown, !isGlobalPaused, !allCompleted else {
+            lastTickDate = Date()
+            return
+        }
+        let now = Date()
+        if let last = lastTickDate {
+            let gap = max(0, now.timeIntervalSince(last))
+            if gap > 0 {
+                updateAllPlans(elapsed: gap)
+            }
+        }
+        lastTickDate = now
     }
 
     private func updateAllPlans(elapsed: TimeInterval) {
@@ -356,9 +401,15 @@ struct IntervalBatchTrainingView: View {
             }
         }
 
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.update(state)
+        }
         if allCompleted {
             timer?.invalidate()
             saveTrainingRecords(completed: true)
+            if let final = liveActivityState(isComplete: true) {
+                TrainingLiveActivityManager.shared.end(final: final, keepVisibleFor: 90)
+            }
         }
     }
 
@@ -375,14 +426,26 @@ struct IntervalBatchTrainingView: View {
 
     private func togglePauseGroup(planIndex: Int, groupIndex: Int) {
         planStates[planIndex].groupStates[groupIndex].isPaused.toggle()
+        lastTickDate = Date()
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.update(state)
+        }
     }
 
     private func toggleGlobalPause() {
         isGlobalPaused.toggle()
+        lastTickDate = Date()
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.update(state)
+        }
     }
 
     private func stopTraining() {
         timer?.invalidate()
+        TrainingLiveActivityManager.shared.end(
+            final: liveActivityState(isComplete: allCompleted),
+            keepVisibleFor: allCompleted ? 90 : 0
+        )
         if sessionStartedAt != nil {
             saveTrainingRecords(completed: false)
         }
@@ -391,6 +454,7 @@ struct IntervalBatchTrainingView: View {
 
     private func restartTraining() {
         timer?.invalidate()
+        TrainingLiveActivityManager.shared.end()
         isGlobalPaused = false
         initializeStates()
         isCountdown = true
@@ -410,6 +474,119 @@ struct IntervalBatchTrainingView: View {
             ) else { continue }
             StorageManager.shared.addTrainingRecord(record)
         }
+    }
+
+    // MARK: - Live Activity snapshot
+
+    private static func mmss(_ value: Double) -> String {
+        let seconds = max(0, Int(value.rounded()))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    /// Locates the first unfinished plan/group across the batch, mirroring the
+    /// single-session snapshot used by `IntervalTrainingView`.
+    private func activeSnapshotTarget() -> (planIndex: Int, groupIndex: Int)? {
+        for planIndex in session.plans.indices where planIndex < planStates.count {
+            let states = planStates[planIndex].groupStates
+            if let groupIndex = states.firstIndex(where: { !$0.isCompleted }) {
+                return (planIndex, groupIndex)
+            }
+        }
+        guard let lastPlan = planStates.indices.last,
+              let lastGroup = planStates[lastPlan].groupStates.indices.last else { return nil }
+        return (lastPlan, lastGroup)
+    }
+
+    private func liveActivityState(isComplete: Bool = false) -> TrainingActivityAttributes.ContentState? {
+        guard let (planIndex, groupIndex) = activeSnapshotTarget(),
+              planIndex < session.plans.count,
+              groupIndex < planStates[planIndex].groupStates.count else { return nil }
+        let state = planStates[planIndex].groupStates[groupIndex]
+        let group = session.plans[planIndex].training.groups[groupIndex]
+        let repetitions = max(1, group.effectiveRepetitions)
+        let rep = min(max(state.currentRepetition, 1), repetitions)
+        let sets = group.effectiveSetCount
+        let set = min(max(state.currentSet, 1), sets)
+        let paused = state.isPaused || isGlobalPaused
+        let complete = isComplete || state.isCompleted
+
+        let phase: String
+        if complete {
+            phase = "completed".localized
+        } else if state.phase == .resting {
+            phase = state.isSetRest ? "set_rest_label".localized : "resting".localized
+        } else {
+            phase = String(format: "live_interval_phase".localized, set, rep, repetitions)
+        }
+
+        let detail: String
+        if complete {
+            detail = String(format: "live_total_format".localized, group.runDistance * repetitions * sets)
+        } else if state.phase == .resting {
+            let plannedRest = state.isSetRest
+                ? group.effectiveSetRest
+                : group.restTimeForRep(max(0, rep - 1))
+            detail = String(format: "live_rest_format".localized, Self.mmss(plannedRest))
+        } else {
+            detail = String(format: "live_interval_detail".localized, group.runDistance, Self.mmss(group.runTimeForRep(rep - 1)))
+        }
+
+        let step = "\(rep) / \(repetitions)"
+        let status: String
+        if complete { status = "completed".localized }
+        else if paused { status = "paused".localized }
+        else if state.phase == .resting { status = "resting".localized }
+        else { status = "running".localized }
+
+        let endDate: Date? = (paused || complete) ? nil : Date().addingTimeInterval(max(0, state.remainingTime))
+
+        return .init(
+            kindLabel: "interval_training".localized,
+            planTitle: batchSessionTitle,
+            phaseLabel: phase,
+            detailLabel: detail,
+            stepLabel: step,
+            compactLabel: "\(rep)/\(repetitions)",
+            remainingText: Self.mmss(state.remainingTime),
+            endDate: endDate,
+            progress: overallProgress(activePlan: planIndex, activeGroup: groupIndex, state: state),
+            accentHex: group.colorHex,
+            isPaused: paused,
+            isComplete: complete,
+            statusLabel: status
+        )
+    }
+
+    private var batchSessionTitle: String {
+        let titles = session.plans.map(\.title).filter { !$0.isEmpty }
+        if titles.isEmpty { return "interval_training".localized }
+        return titles.joined(separator: " · ")
+    }
+
+    private func overallProgress(activePlan: Int, activeGroup: Int, state: GroupTrainingState) -> Double {
+        var total = 0.0
+        var done = 0.0
+        for (planIndex, launchPlan) in session.plans.enumerated() {
+            guard planIndex < planStates.count else { continue }
+            for (groupIndex, group) in launchPlan.training.groups.enumerated() {
+                let unit = max(1, group.effectiveRepetitions) * group.effectiveSetCount
+                total += Double(unit)
+                guard groupIndex < planStates[planIndex].groupStates.count else { continue }
+                let groupState = planStates[planIndex].groupStates[groupIndex]
+                if groupState.isCompleted {
+                    done += Double(unit)
+                } else if planIndex == activePlan && groupIndex == activeGroup {
+                    let reps = max(1, group.effectiveRepetitions)
+                    let rep = min(max(state.currentRepetition, 1), reps)
+                    done += Double((min(max(state.currentSet, 1), group.effectiveSetCount) - 1) * reps + (rep - 1))
+                    if state.phase == .running {
+                        let planned = max(0.001, group.runTimeForRep(rep - 1))
+                        done += max(0, min(1, 1 - state.remainingTime / planned))
+                    }
+                }
+            }
+        }
+        return min(1, max(0, done / max(1, total)))
     }
 
     private func completedGroupCount(for planIndex: Int) -> Int {

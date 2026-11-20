@@ -24,7 +24,7 @@ struct IntervalTrainingView: View {
     @State private var countdownSeconds: Int = 3
     @State private var isCountdown: Bool = true
     @State private var timer: Timer?
-    @State private var lastTickUptime: TimeInterval = 0
+    @State private var lastTickDate: Date?
     @State private var showConfirmStop = false
     @State private var didSaveRecord = false
     @State private var hasStartedTraining = false
@@ -59,10 +59,21 @@ struct IntervalTrainingView: View {
         .onDisappear {
             timer?.invalidate()
             soundManager.endTrainingRuntimeSupport()
+            // Completed sessions already ended with a 90 s grace card; this
+            // only clears an activity when the screen is left mid-session.
+            TrainingLiveActivityManager.shared.end()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                lastTickUptime = ProcessInfo.processInfo.systemUptime
+            switch phase {
+            case .active:
+                resumeTimingIfNeeded()
+            case .background, .inactive:
+                // Leaving the foreground ends the island immediately: a card
+                // must not keep showing a session that is no longer running.
+                TrainingLiveActivityManager.shared.endAllImmediately()
+                suspendTiming()
+            @unknown default:
+                break
             }
         }
         .alert("confirm_stop".localized, isPresented: $showConfirmStop) {
@@ -102,22 +113,88 @@ struct IntervalTrainingView: View {
 
     // MARK: - Training Content
     private var trainingContent: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 12) {
-                ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
-                    if index < groupStates.count {
-                    GroupTrainingCard(
-                        group: group,
-                        state: groupStates[index],
-                        onPauseToggle: { togglePauseGroup(index) }
-                    )
+        GeometryReader { geo in
+            if DSLayout.isWide(geo.size.width) {
+                DSTrainingSplit(width: geo.size.width, fillHeight: max(0, geo.size.height - 150)) {
+                    VStack(spacing: 12) { groupCards() }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 120)
+                } trailing: {
+                    contextColumn
+                        .frame(maxWidth: 640, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+                        .padding(.bottom, 120)
+                }
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 12) { groupCards() }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 120)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func groupCards() -> some View {
+        ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
+            if index < groupStates.count {
+                GroupTrainingCard(
+                    group: group,
+                    state: groupStates[index],
+                    onPauseToggle: { togglePauseGroup(index) }
+                )
+            }
+        }
+    }
+
+    private var contextColumn: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(Array(training.groups.enumerated()), id: \.element.id) { index, group in
+                if index < groupStates.count {
+                    if groupStates[index].isCompleted {
+                        completedRow(group: group)
+                    } else if training.groups.count > 1 {
+                        HStack(spacing: 8) {
+                            DSLaneTick(color: parseColor(group.colorHex))
+                            Text(group.name)
+                                .font(DS.Typo.cardSubtitle)
+                                .foregroundStyle(DS.Colors.textSecondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 120)
         }
+    }
+
+    private func completedRow(group: IntervalGroup) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DS.Colors.success)
+            Text(group.name)
+                .font(DS.Typo.cardSubtitle)
+                .foregroundStyle(DS.Colors.textSecondary)
+            Text("completed".localized)
+                .font(DS.Typo.meta)
+                .foregroundStyle(DS.Colors.textHint)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func parseColor(_ hex: String) -> Color {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard cleaned.count == 6, let value = UInt32(cleaned, radix: 16) else { return DS.Colors.interval }
+        return Color(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
     }
 
     // MARK: - Bottom Controls
@@ -178,6 +255,7 @@ struct IntervalTrainingView: View {
         didSaveRecord = false
         hasStartedTraining = false
         sessionStartedAt = nil
+        lastTickDate = nil
     }
 
     private func startCountdown() {
@@ -211,19 +289,41 @@ struct IntervalTrainingView: View {
             groupStates[index].isSetRest = false
         }
         startTimer()
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.begin(trainingID: training.id, state: state)
+        }
     }
 
     private func startTimer() {
-        lastTickUptime = ProcessInfo.processInfo.systemUptime
+        lastTickDate = Date()
         let mainTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
-            let now = ProcessInfo.processInfo.systemUptime
-            let rawElapsed = max(0, now - self.lastTickUptime)
-            self.lastTickUptime = now
+            let now = Date()
+            let rawElapsed = max(0, now.timeIntervalSince(lastTickDate ?? now))
+            lastTickDate = now
             let elapsed = min(rawElapsed, self.maxTickElapsed)
             self.updateAllGroups(elapsed: elapsed)
         }
         RunLoop.main.add(mainTimer, forMode: .common)
         timer = mainTimer
+    }
+
+    private func suspendTiming() {
+        lastTickDate = nil
+    }
+
+    private func resumeTimingIfNeeded() {
+        guard !isCountdown, !isGlobalPaused, !allCompleted else {
+            lastTickDate = Date()
+            return
+        }
+        let now = Date()
+        if let last = lastTickDate {
+            let gap = max(0, now.timeIntervalSince(last))
+            if gap > 0 {
+                updateAllGroups(elapsed: gap)
+            }
+        }
+        lastTickDate = now
     }
 
     private func updateAllGroups(elapsed: TimeInterval) {
@@ -340,9 +440,15 @@ struct IntervalTrainingView: View {
                 }
             }
         }
+        if let state = liveActivityState() {
+            TrainingLiveActivityManager.shared.update(state)
+        }
         if !groupStates.isEmpty && groupStates.allSatisfy({ $0.isCompleted }) {
             timer?.invalidate()
             saveTrainingRecord(completed: true)
+            if let final = liveActivityState(isComplete: true) {
+                TrainingLiveActivityManager.shared.end(final: final, keepVisibleFor: 90)
+            }
         }
     }
 
@@ -357,13 +463,111 @@ struct IntervalTrainingView: View {
         }
     }
 
+    // MARK: - Live Activity snapshot
+
+    private static func mmss(_ value: Double) -> String {
+        let seconds = max(0, Int(value.rounded()))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func liveActivityState(isComplete: Bool = false) -> TrainingActivityAttributes.ContentState? {
+        guard !training.groups.isEmpty, !groupStates.isEmpty else { return nil }
+        let index = groupStates.firstIndex(where: { !$0.isCompleted }) ?? (groupStates.count - 1)
+        guard index < training.groups.count else { return nil }
+        let state = groupStates[index]
+        let group = training.groups[index]
+        let repetitions = max(1, group.effectiveRepetitions)
+        let rep = min(max(state.currentRepetition, 1), repetitions)
+        let sets = group.effectiveSetCount
+        let set = min(max(state.currentSet, 1), sets)
+        let paused = state.isPaused || isGlobalPaused
+        let complete = isComplete || state.isCompleted
+
+        let phase: String
+        if complete {
+            phase = "completed".localized
+        } else if state.phase == .resting {
+            phase = state.isSetRest ? "set_rest_label".localized : "resting".localized
+        } else {
+            phase = String(format: "live_interval_phase".localized, set, rep, repetitions)
+        }
+
+        let detail: String
+        if complete {
+            detail = String(format: "live_total_format".localized, group.runDistance * repetitions * sets)
+        } else if state.phase == .resting {
+            let plannedRest = state.isSetRest
+                ? group.effectiveSetRest
+                : group.restTimeForRep(max(0, rep - 1))
+            detail = String(format: "live_rest_format".localized, Self.mmss(plannedRest))
+        } else {
+            detail = String(format: "live_interval_detail".localized, group.runDistance, Self.mmss(group.runTimeForRep(rep - 1)))
+        }
+
+        let step = "\(rep) / \(repetitions)"
+        let status: String
+        if complete { status = "completed".localized }
+        else if paused { status = "paused".localized }
+        else if state.phase == .resting { status = "resting".localized }
+        else { status = "running".localized }
+
+        let endDate: Date? = (paused || complete) ? nil : Date().addingTimeInterval(max(0, state.remainingTime))
+
+        return .init(
+            kindLabel: "interval_training".localized,
+            planTitle: training.name,
+            phaseLabel: phase,
+            detailLabel: detail,
+            stepLabel: step,
+            compactLabel: "\(rep)/\(repetitions)",
+            remainingText: Self.mmss(state.remainingTime),
+            endDate: endDate,
+            progress: overallProgress(activeIndex: index, state: state),
+            accentHex: group.colorHex,
+            isPaused: paused,
+            isComplete: complete,
+            statusLabel: status
+        )
+    }
+
+    private func overallProgress(activeIndex: Int, state: GroupTrainingState) -> Double {
+        let perGroup = training.groups.map { max(1, $0.effectiveRepetitions) * $0.effectiveSetCount }
+        let total = max(1, perGroup.reduce(0, +))
+        var done = 0.0
+        for (i, groupState) in groupStates.enumerated() where i < perGroup.count {
+            if groupState.isCompleted {
+                done += Double(perGroup[i])
+            } else if i == activeIndex {
+                let group = training.groups[i]
+                let repetitions = max(1, group.effectiveRepetitions)
+                let rep = min(max(state.currentRepetition, 1), repetitions)
+                done += Double((min(max(state.currentSet, 1), group.effectiveSetCount) - 1) * repetitions + (rep - 1))
+                if state.phase == .running {
+                    let planned = max(0.001, group.runTimeForRep(rep - 1))
+                    done += max(0, min(1, 1 - state.remainingTime / planned))
+                }
+            }
+        }
+        return min(1, max(0, done / Double(total)))
+    }
+
     private func togglePauseGroup(_ index: Int) {
         guard index >= 0, index < groupStates.count else { return }
         groupStates[index].isPaused.toggle()
+        lastTickDate = Date()
+        if let state = liveActivityState() { TrainingLiveActivityManager.shared.update(state) }
     }
-    private func toggleGlobalPause() { isGlobalPaused.toggle() }
+    private func toggleGlobalPause() {
+        isGlobalPaused.toggle()
+        lastTickDate = Date()
+        if let state = liveActivityState() { TrainingLiveActivityManager.shared.update(state) }
+    }
     private func stopTraining() {
         timer?.invalidate()
+        TrainingLiveActivityManager.shared.end(
+            final: liveActivityState(isComplete: allCompleted),
+            keepVisibleFor: allCompleted ? 90 : 0
+        )
         if sessionStartedAt != nil {
             saveTrainingRecord(completed: false)
         }
@@ -371,6 +575,7 @@ struct IntervalTrainingView: View {
     }
     private func restartTraining() {
         timer?.invalidate()
+        TrainingLiveActivityManager.shared.end()
         isGlobalPaused = false
         initializeStates()
         isCountdown = true
@@ -415,9 +620,10 @@ struct GroupTrainingCard: View {
 
     // Phase accent color
     private var phaseColor: Color {
-        if state.isPaused { return .orange }
-        if state.phase == .running { return groupColor }
-        return Color.white.opacity(DS.Opacity.prominent)
+        if state.isCompleted { return groupColor }
+        if state.isPaused { return DS.Colors.warning }
+        if state.phase == .resting { return DS.Colors.rest }
+        return groupColor
     }
 
     // Progress within current phase (0→1)
@@ -558,6 +764,11 @@ struct GroupTrainingCard: View {
             }
         }
         .dsCard(radius: DS.Radius.lg, padding: 0)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .strokeBorder(phaseColor.opacity(state.isCompleted ? 0.35 : 0.28), lineWidth: 1)
+        )
+        .animation(.spring(duration: 0.35), value: state.isCompleted)
         .onAppear { speedUnit = StorageManager.shared.loadSettings().speedUnit }
     }
 
@@ -565,8 +776,11 @@ struct GroupTrainingCard: View {
     private var completedContent: some View {
         HStack(spacing: 16) {
             Circle()
-                .fill(groupColor.opacity(0.15))
+                .fill(groupColor.opacity(0.16))
                 .frame(width: 44, height: 44)
+                .overlay(
+                    Circle().strokeBorder(groupColor.opacity(0.35), lineWidth: 1)
+                )
                 .overlay(
                     Image(systemName: "checkmark")
                         .font(.system(size: 18, weight: .bold))
@@ -577,13 +791,14 @@ struct GroupTrainingCard: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("completed".localized)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(groupColor)
             }
             Spacer()
             Text("\(group.effectiveRepetitions) \("repetitions".localized)")
-                .font(.system(size: 13))
-                .foregroundStyle(DS.Colors.textTertiary)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(DS.Colors.textSecondary)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
@@ -604,7 +819,7 @@ struct GroupTrainingCard: View {
                 if group.effectiveSetCount > 1 {
                     HStack(spacing: 4) {
                         Image(systemName: "repeat")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 9, weight: .medium))
                         Text(String(format: "set_progress".localized, state.currentSet, group.effectiveSetCount))
                             .font(.system(size: 12, weight: .bold))
                     }
@@ -647,8 +862,10 @@ struct GroupTrainingCard: View {
                     Text("/ \(group.effectiveRepetitions) \("repetitions".localized)")
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: 88)
 
                 Rectangle().fill(DS.Colors.divider).frame(width: 1, height: 44)
 
@@ -656,14 +873,15 @@ struct GroupTrainingCard: View {
                 VStack(spacing: 2) {
                     Text(remainingTimeText)
                         .font(DS.Typo.timerLarge)
-                        .foregroundStyle(phaseColor)
+                        .foregroundStyle(state.isPaused ? DS.Colors.warning : (state.phase == .resting ? DS.Colors.rest : .white))
                         .monospacedDigit()
-                        .minimumScaleFactor(0.6)
+                        .minimumScaleFactor(0.72)
                         .lineLimit(1)
                     Text("seconds".localized)
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
                 }
+                .padding(.horizontal, 6)
                 .frame(maxWidth: .infinity)
 
                 Rectangle().fill(DS.Colors.divider).frame(width: 1, height: 44)
@@ -674,11 +892,13 @@ struct GroupTrainingCard: View {
                         .font(DS.Typo.timerSmall)
                         .foregroundStyle(.white)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     Text(speedUnitLabel)
                         .font(DS.Typo.sectionLabel)
                         .foregroundStyle(.white.opacity(DS.Opacity.strong))
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: 88)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     speedUnit = (speedUnit + 1) % 3
@@ -687,7 +907,7 @@ struct GroupTrainingCard: View {
                     StorageManager.shared.saveSettings(settings)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.vertical, 18)
 
             // ── Up-next preview (audit A4) ───────────────────────
@@ -725,21 +945,17 @@ struct GroupTrainingCard: View {
     private var statusPill: some View {
         HStack(spacing: 5) {
             if state.isPaused {
-                Image(systemName: "pause.fill").font(.system(size: 10, weight: .bold))
-                Text("paused".localized).font(.system(size: 12, weight: .semibold))
+                Image(systemName: "pause.fill").font(.system(size: 9, weight: .medium))
+                Text("paused".localized).font(.system(size: 12, weight: .medium))
             } else if state.phase == .running {
-                Image(systemName: "figure.run").font(.system(size: 10, weight: .bold))
-                Text("running".localized).font(.system(size: 12, weight: .semibold))
+                Image(systemName: "figure.run").font(.system(size: 9, weight: .medium))
+                Text("running".localized).font(.system(size: 12, weight: .medium))
             } else {
-                Image(systemName: "pause.circle.fill").font(.system(size: 10, weight: .bold))
-                Text("resting".localized).font(.system(size: 12, weight: .semibold))
+                Image(systemName: "pause.circle.fill").font(.system(size: 9, weight: .medium))
+                Text("resting".localized).font(.system(size: 12, weight: .medium))
             }
         }
         .foregroundStyle(phaseColor)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(phaseColor.opacity(0.15))
-        .clipShape(Capsule())
     }
 
 }
@@ -810,7 +1026,8 @@ struct RepTrackView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.6))
                 Text(currentRepDurationText)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
                     .foregroundStyle(.white.opacity(0.78))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -819,8 +1036,14 @@ struct RepTrackView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 4)
-        .background(Color(red: 0.04, green: 0.04, blue: 0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(white: 0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color(white: 0.15), lineWidth: 1)
+                )
+        )
         .padding(.bottom, 4)
     }
 
@@ -848,8 +1071,9 @@ struct RepTrackView: View {
                     .overlay {
                         if showRowDuration {
                             Text(slotDurationLabel(index: globalIndex))
-                                .font(.system(size: TrackVisualStyle.inlineLabelSize, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.85))
+                                .font(.system(size: TrackVisualStyle.inlineLabelSize, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.white.opacity(0.9))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                         }
@@ -1002,3 +1226,4 @@ struct RepTrackView: View {
         )
     )
 }
+

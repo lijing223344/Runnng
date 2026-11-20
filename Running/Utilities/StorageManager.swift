@@ -13,6 +13,7 @@ class StorageManager: ObservableObject {
         static let trainingRecords = "training_records"; static let isLoggedIn = "is_logged_in"; static let isGuest = "is_guest"
         static let paceRunTraining = "pace_run_training"; static let intervalTraining = "interval_training_single"; static let savedPlans = "saved_plans"
         static let miniHurdleProfiles = "mini_hurdle_profiles"; static let selectedMiniHurdleProfileID = "selected_mini_hurdle_profile_id"
+        static let soundCueMigration = "sound_cue_migration_v1"
     }
     private init() {
         observeCloudChanges()
@@ -257,6 +258,80 @@ class StorageManager: ObservableObject {
         saveTrainingRecords(records)
     }
 
+    // MARK: - Sound cue migration (one-time)
+
+    /// Groups created before the cue split stored the same whistle for go,
+    /// split and finish, so the console repeated one blast. Only a group where
+    /// all three cues are still the untouched legacy default is rewritten;
+    /// any group the user already customised is left exactly as it is.
+    func migrateLegacySoundCuesIfNeeded() {
+        let flagKey = scopedKey(Keys.soundCueMigration)
+        guard !defaults.bool(forKey: flagKey) else { return }
+
+        if var training = loadPaceRunTraining(), migratePaceRunCues(&training) {
+            savePaceRunTraining(training)
+        }
+        if var training = loadIntervalTrainingSingle(), migrateIntervalCues(&training) {
+            saveIntervalTrainingSingle(training)
+        }
+
+        var plans = loadPlans()
+        var plansChanged = false
+        for idx in plans.indices {
+            switch plans[idx].trainingType {
+            case .paceRun:
+                if var training = try? JSONDecoder().decode(PaceRunTraining.self, from: plans[idx].configData),
+                   migratePaceRunCues(&training),
+                   let data = try? JSONEncoder().encode(training) {
+                    plans[idx].configData = data
+                    plansChanged = true
+                }
+            case .intervalTraining:
+                if var training = try? JSONDecoder().decode(IntervalTraining.self, from: plans[idx].configData),
+                   migrateIntervalCues(&training),
+                   let data = try? JSONEncoder().encode(training) {
+                    plans[idx].configData = data
+                    plansChanged = true
+                }
+            }
+        }
+        if plansChanged { savePlans(plans) }
+
+        defaults.set(true, forKey: flagKey)
+    }
+
+    @discardableResult
+    private func migratePaceRunCues(_ training: inout PaceRunTraining) -> Bool {
+        var changed = false
+        for idx in training.groups.indices {
+            let group = training.groups[idx]
+            guard group.startSound == .whistleShort,
+                  group.segmentSound == .whistleShort,
+                  group.endSound == .whistleShort else { continue }
+            training.groups[idx].startSound = .startTriad
+            training.groups[idx].segmentSound = .splitTick
+            training.groups[idx].endSound = .finishArpeggio
+            changed = true
+        }
+        return changed
+    }
+
+    @discardableResult
+    private func migrateIntervalCues(_ training: inout IntervalTraining) -> Bool {
+        var changed = false
+        for idx in training.groups.indices {
+            let group = training.groups[idx]
+            guard group.startSound == .whistleShort,
+                  group.restSound == .whistleShort,
+                  group.endSound == .whistleShort else { continue }
+            training.groups[idx].startSound = .startTriad
+            training.groups[idx].restSound = .restBell
+            training.groups[idx].endSound = .finishArpeggio
+            changed = true
+        }
+        return changed
+    }
+
     // MARK: - Saved Plans
 
     func savePlans(_ plans: [SavedPlan]) {
@@ -417,7 +492,8 @@ class StorageManager: ObservableObject {
             "\(Keys.intervalTraining)::",
             "\(Keys.savedPlans)::",
             "\(Keys.miniHurdleProfiles)::",
-            "\(Keys.selectedMiniHurdleProfileID)::"
+            "\(Keys.selectedMiniHurdleProfileID)::",
+            "\(Keys.soundCueMigration)::"
         ]
         for key in defaults.dictionaryRepresentation().keys {
             if scopedPrefixes.contains(where: { key.hasPrefix($0) }) {
@@ -435,6 +511,7 @@ class StorageManager: ObservableObject {
         defaults.removeObject(forKey: Keys.savedPlans)
         defaults.removeObject(forKey: Keys.miniHurdleProfiles)
         defaults.removeObject(forKey: Keys.selectedMiniHurdleProfileID)
+        defaults.removeObject(forKey: Keys.soundCueMigration)
 
         currentUser = nil
         isLoggedIn = false

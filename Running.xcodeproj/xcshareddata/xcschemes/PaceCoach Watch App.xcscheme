@@ -15,20 +15,6 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D734454E2F614D4600AB4463"
-               BuildableName = "Running.app"
-               BlueprintName = "Running"
-               ReferencedContainer = "container:Running.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "D79C1C412F75778B00AF266F"
                BuildableName = "PaceCoach Watch App.app"
                BlueprintName = "PaceCoach Watch App"

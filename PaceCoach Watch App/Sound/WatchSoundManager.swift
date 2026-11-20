@@ -158,6 +158,40 @@ class WatchSoundManager {
 
         cache[SoundType.airHorn.rawValue] = makeAirHorn()
         cache[SoundType.buzzer.rawValue] = makeBuzzer()
+
+        // Timing cues — identical render to the iPhone console.
+        cache[SoundType.splitTick.rawValue] = makeCueSequence(
+            [
+                WatchCueSegment(offset: 0, dur: 0.045, freq: 2000, oddHarmonics: true, atk: 0.0012, rel: 0.009),
+                WatchCueSegment(offset: 0.045, dur: 0.045, freq: 2000, oddHarmonics: true, atk: 0.0012, rel: 0.009)
+            ],
+            totalDur: 0.12
+        )
+        cache[SoundType.startTriad.rawValue] = makeCueSequence(
+            [
+                WatchCueSegment(offset: 0, dur: 0.060, freq: 196, oddHarmonics: true, atk: 0.002, rel: 0.018),
+                WatchCueSegment(offset: 0.070, dur: 0.240, freq: 480, sweepTo: 1500, oddHarmonics: true, atk: 0.004, rel: 0.035)
+            ],
+            totalDur: 0.32
+        )
+        cache[SoundType.restBell.rawValue] = makeCueSequence(
+            [
+                WatchCueSegment(
+                    offset: 0, dur: 0.560,
+                    partials: [(196, 0.60), (466, 0.30), (734, 0.22), (1176, 0.16), (1560, 0.08)],
+                    decayTau: 0.160, atk: 0.004, rel: 0.040
+                )
+            ],
+            totalDur: 0.57
+        )
+        cache[SoundType.finishArpeggio.rawValue] = makeCueSequence(
+            [
+                WatchCueSegment(offset: 0,     dur: 0.090, freq: 1400, oddHarmonics: true, atk: 0.0015, rel: 0.020),
+                WatchCueSegment(offset: 0.115, dur: 0.090, freq: 1050, oddHarmonics: true, atk: 0.0015, rel: 0.020),
+                WatchCueSegment(offset: 0.230, dur: 0.220, freq: 700,  oddHarmonics: true, atk: 0.0015, rel: 0.150)
+            ],
+            totalDur: 0.45
+        )
     }
 
     // MARK: - Public API
@@ -575,6 +609,109 @@ class WatchSoundManager {
             data[i] = softClip(s)
         }
         normalizeToTarget(data: data, frames: Int(frameCount), target: 0.85, drive: globalLoudnessDrive)
+        return buf
+    }
+
+    /// `tones`: (frequency, dur, release, offset)
+    private func makeBeepSequence(_ tones: [(Float, Double, Double, Double)], totalDur: Double) -> AVAudioPCMBuffer? {
+        guard let audioFormat else { return nil }
+        let totalFrames = AVAudioFrameCount(sampleRate * totalDur)
+        guard let buf = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: totalFrames),
+              let data = buf.floatChannelData?[0] else { return nil }
+        buf.frameLength = totalFrames
+        for i in 0..<Int(totalFrames) { data[i] = 0 }
+        for tone in tones {
+            let startFrame = Int(sampleRate * tone.3)
+            let toneFrames = Int(sampleRate * tone.1)
+            let atkF = Int(sampleRate * 0.005)
+            let relStart = toneFrames - Int(sampleRate * tone.2)
+            for i in 0..<toneFrames {
+                let g = startFrame + i
+                guard g < Int(totalFrames) else { break }
+                let t = Float(i) / Float(sampleRate)
+                let fundamental = sinf(2 * .pi * tone.0 * t)
+                let h3 = sinf(2 * .pi * tone.0 * 3.0 * t) * 0.25
+                let h5 = sinf(2 * .pi * tone.0 * 5.0 * t) * 0.12
+                var s = fundamental + h3 + h5
+                if i < atkF { s *= Float(i) / Float(max(1, atkF)) }
+                else if i >= relStart {
+                    let relF = toneFrames - relStart
+                    s *= 1 - Float(i - relStart) / Float(max(1, relF))
+                }
+                data[g] += softClip(s)
+            }
+        }
+        normalizeToTarget(data: data, frames: Int(totalFrames), target: 0.85, drive: globalLoudnessDrive)
+        return buf
+    }
+
+    // MARK: - Cue synthesis (mirrors the iPhone console)
+
+    private struct WatchCueSegment {
+        var offset: Double
+        var dur: Double
+        var freq: Float = 0
+        var sweepTo: Float? = nil
+        var oddHarmonics: Bool = false
+        var partials: [(Float, Float)]? = nil
+        var decayTau: Double? = nil
+        var atk: Double = 0.002
+        var rel: Double = 0.008
+    }
+
+    private func makeCueSequence(_ segments: [WatchCueSegment], totalDur: Double) -> AVAudioPCMBuffer? {
+        guard let audioFormat else { return nil }
+        let totalFrames = AVAudioFrameCount(sampleRate * totalDur)
+        guard let buf = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: totalFrames),
+              let data = buf.floatChannelData?[0] else { return nil }
+        buf.frameLength = totalFrames
+        for i in 0..<Int(totalFrames) { data[i] = 0 }
+
+        for seg in segments {
+            let startF = Int(sampleRate * seg.offset)
+            let n = Int(sampleRate * seg.dur)
+            guard n > 0 else { continue }
+            let atkF = max(1, Int(sampleRate * seg.atk))
+            let relF = max(1, Int(sampleRate * seg.rel))
+            var phase: Float = 0
+
+            for i in 0..<n {
+                let g = startF + i
+                guard g < Int(totalFrames) else { break }
+                let t = Float(i) / Float(sampleRate)
+
+                var env: Float = 1
+                if i < atkF { env = Float(i) / Float(atkF) }
+                if let tau = seg.decayTau {
+                    env *= Float(exp(-Double(t) / tau))
+                } else if i >= n - relF {
+                    env *= Float(n - i) / Float(relF)
+                }
+
+                let sample: Float
+                if let partials = seg.partials {
+                    var v: Float = 0
+                    for p in partials { v += sinf(2 * .pi * p.0 * t) * p.1 }
+                    sample = v
+                } else {
+                    let f: Float
+                    if let sweepTo = seg.sweepTo {
+                        f = seg.freq + (sweepTo - seg.freq) * Float(i) / Float(n)
+                    } else {
+                        f = seg.freq
+                    }
+                    phase += 2 * .pi * f / Float(sampleRate)
+                    if seg.oddHarmonics {
+                        sample = (sinf(phase) + sinf(3 * phase) / 3) * 0.82
+                    } else {
+                        sample = sinf(phase) + sinf(3 * phase) * 0.22 + sinf(5 * phase) * 0.10
+                    }
+                }
+                data[g] += sample * env
+            }
+        }
+
+        normalizeToTarget(data: data, frames: Int(totalFrames), target: 0.95, drive: 1.0)
         return buf
     }
 

@@ -168,7 +168,9 @@ enum FourHundredModelCalculator {
 
         guard let result = calculate(profile: profile, finalTime: adjustedFinalTime) else { return nil }
 
-        let sound = SoundType.allCases.first ?? .whistleShort
+        let startSound: SoundType = .startTriad
+        let segmentSound: SoundType = .splitTick
+        let endSound: SoundType = .finishArpeggio
         let splits = result.splits(for: granularity)
         let customSegments = splits.map { split in
             CustomSegment(distance: split.endDistance - split.startDistance, time: split.time, restAfter: 0)
@@ -190,9 +192,9 @@ enum FourHundredModelCalculator {
             countdownSeconds: 3,
             setCount: nil,
             setRestTime: nil,
-            segmentSound: sound,
-            startSound: sound,
-            endSound: sound,
+            segmentSound: segmentSound,
+            startSound: startSound,
+            endSound: endSound,
             sortOrder: 0,
             customSegments: customSegments
         )

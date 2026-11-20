@@ -57,8 +57,8 @@ struct FourHundredModelGeneratorView: View {
                     invalidStateSection
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 20)
+            .padding(.horizontal, DS.Space.page)
+            .padding(.vertical, DS.Space.lg)
         }
         .background(TrainingPageBackground())
         .overlay(alignment: .bottom) { generatedBanner }
@@ -86,22 +86,15 @@ struct FourHundredModelGeneratorView: View {
 
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
-            Text("model_400_title".localized)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(DS.Colors.textPrimary)
+            DSLaneRule(color: DS.Colors.model400, width: 26)
 
             Text("model_400_desc".localized)
-                .font(.system(size: 13))
+                .font(.system(size: 14))
                 .foregroundStyle(DS.Colors.textSecondary)
-
-            HStack(spacing: DS.Space.sm) {
-                FeaturePill(icon: "figure.run", text: "model_400_feature_draft".localized)
-                FeaturePill(icon: "ruler", text: "model_400_feature_segments".localized)
-                FeaturePill(icon: "chart.xyaxis.line", text: "model_400_feature_metrics".localized)
-            }
-            .padding(.top, DS.Space.xs)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, DS.Space.xxs)
         }
-        .dsCardAccent(accent: DS.Colors.model400)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var controlsSection: some View {
@@ -109,29 +102,30 @@ struct FourHundredModelGeneratorView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("model_400_profile".localized)
-                        .font(.subheadline.weight(.semibold))
-                    Picker("model_400_profile".localized, selection: $profile) {
-                        ForEach(FourHundredModelProfile.allCases) { option in
-                            Text(option.displayName).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.Colors.textTertiary)
+                    DSSegmentedPicker(
+                        selection: $profile,
+                        options: FourHundredModelProfile.allCases,
+                        accent: DS.Colors.model400
+                    ) { $0.displayName }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("model_400_granularity".localized)
-                        .font(.subheadline.weight(.semibold))
-                    Picker("model_400_granularity".localized, selection: $granularity) {
-                        ForEach(FourHundredSplitGranularity.allCases) { option in
-                            Text(option.displayName).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.Colors.textTertiary)
+                    DSSegmentedPicker(
+                        selection: $granularity,
+                        options: FourHundredSplitGranularity.allCases,
+                        accent: DS.Colors.model400
+                    ) { $0.displayName }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("model_400_target_time".localized)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.Colors.textTertiary)
 
                     FloatingTextInputField(
                         placeholder: "57.00",
@@ -150,7 +144,7 @@ struct FourHundredModelGeneratorView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(DS.Colors.model400.opacity(0.80), lineWidth: 1.5)
+                            .stroke(DS.Colors.fieldBorder, lineWidth: 1)
                     )
 
                     Text("model_400_target_time_hint".localized)
@@ -160,7 +154,8 @@ struct FourHundredModelGeneratorView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("model_400_intensity".localized)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.Colors.textTertiary)
 
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
                         ForEach(quickIntensityOptions, id: \.self) { option in
@@ -168,12 +163,22 @@ struct FourHundredModelGeneratorView: View {
                                 intensityText = intensityDisplayText(option)
                             } label: {
                                 Text("\(intensityDisplayText(option))%")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 13, weight: isQuickIntensitySelected(option) ? .medium : .regular))
+                                    .monospacedDigit()
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 8)
-                                    .background(isQuickIntensitySelected(option) ? DS.Colors.model400 : DS.Colors.cardHover)
-                                    .foregroundStyle(isQuickIntensitySelected(option) ? .white : .primary)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .frame(height: 38)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                            .fill(isQuickIntensitySelected(option) ? DS.Colors.field : DS.Colors.card)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                            .stroke(
+                                                isQuickIntensitySelected(option) ? DS.Colors.border : DS.Colors.borderLight,
+                                                lineWidth: 1
+                                            )
+                                    )
+                                    .foregroundStyle(isQuickIntensitySelected(option) ? DS.Colors.textPrimary : DS.Colors.textSecondary)
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("model_400_intensity_preset_\(Int(option))")
@@ -225,8 +230,9 @@ struct FourHundredModelGeneratorView: View {
                                 timeText(trainingTimeForSelectedIntensity)
                             )
                         )
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(DS.Colors.model400)
+                        .font(.system(size: 12, design: .monospaced))
+                        .monospacedDigit()
+                        .foregroundStyle(DS.Colors.textSecondary)
                     }
                 }
 
@@ -236,7 +242,7 @@ struct FourHundredModelGeneratorView: View {
                         Text("model_400_generate".localized)
                             .fontWeight(.semibold)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(result != nil ? DS.Colors.bg : DS.Colors.textTertiary)
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .trainingPrimaryActionSurface(isEnabled: result != nil, colors: [DS.Colors.model400])
                 }
@@ -253,10 +259,10 @@ struct FourHundredModelGeneratorView: View {
     private func summarySection(_ result: FourHundredModelResult) -> some View {
         ModelSectionCard(title: "model_400_summary".localized, accent: DS.Colors.model400) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                MetricTile(title: "model_400_metric_target".localized, value: timeText(result.finalTime), tint: DS.Colors.model400)
-                MetricTile(title: "model_400_metric_estimated_200".localized, value: timeText(result.metrics.estimated200PB), tint: DS.Colors.paceRun) // Athletic Blue
-                MetricTile(title: "model_400_metric_first_200".localized, value: timeText(result.metrics.first200), tint: DS.Colors.interval) // Speed Orange
-                MetricTile(title: "model_400_metric_last_200".localized, value: timeText(result.metrics.last200), tint: DS.Colors.error) // Red/Alert
+                MetricTile(title: "model_400_metric_target".localized, value: timeText(result.finalTime), tint: DS.Colors.model400, isPrimary: true)
+                MetricTile(title: "model_400_metric_estimated_200".localized, value: timeText(result.metrics.estimated200PB), tint: DS.Colors.model400)
+                MetricTile(title: "model_400_metric_first_200".localized, value: timeText(result.metrics.first200), tint: DS.Colors.model400)
+                MetricTile(title: "model_400_metric_last_200".localized, value: timeText(result.metrics.last200), tint: DS.Colors.model400)
             }
         }
     }
@@ -328,69 +334,44 @@ struct FourHundredModelGeneratorView: View {
     }
 
     private func rowCard(title: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: DS.Space.md) {
             Text(title)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
+                .font(.system(size: 14))
+                .foregroundStyle(DS.Colors.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.9)
-            Spacer(minLength: 12)
-            timeBadge(text: value, tint: DS.Colors.model400)
+            Spacer(minLength: DS.Space.md)
+            timeBadge(text: value, tint: DS.Colors.textPrimary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, DS.Space.sm + 2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(DS.Colors.field)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(DS.Colors.fieldBorder, lineWidth: 1)
-        )
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(DS.Colors.divider).frame(height: 1)
+        }
     }
 
     private func checkpointTile(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DS.Space.xxs) {
             Text(title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(DS.Colors.textTertiary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.94)
+                .minimumScaleFactor(0.9)
 
-            timeBadge(text: value, tint: DS.Colors.model400)
+            timeBadge(text: value, tint: DS.Colors.textPrimary)
         }
-        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(DS.Colors.field)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(DS.Colors.fieldBorder, lineWidth: 1)
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, DS.Space.xs)
     }
 
     @ViewBuilder
-    private func timeBadge(text: String, tint: Color) -> some View {
+    private func timeBadge(text: String, tint: Color = DS.Colors.textPrimary) -> some View {
         Text(text)
-            .font(DS.Typo.timeBadge)
-            .foregroundStyle(tint)
+            .font(.system(size: 15, weight: .medium, design: .monospaced))
             .monospacedDigit()
+            .foregroundStyle(tint)
             .lineLimit(1)
             .minimumScaleFactor(0.78)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(tint.opacity(0.18))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(tint.opacity(0.50), lineWidth: 1)
-            )
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(1)
     }
@@ -485,9 +466,8 @@ struct FourHundredModelGeneratorView: View {
                 RoundedRectangle(cornerRadius: DS.Radius.xl, style: .continuous)
                     .stroke(DS.Colors.border, lineWidth: 1)
             )
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-            .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+            .padding(.horizontal, DS.Space.page)
+            .padding(.bottom, DS.Space.md)
         }
     }
 
@@ -552,22 +532,16 @@ private struct ModelSectionCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Space.lg) {
-            HStack(spacing: 8) {
-                if let accent {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(accent)
-                        .frame(width: 3, height: 16)
-                }
-                VStack(alignment: .leading, spacing: DS.Space.xs) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(accent ?? DS.Colors.textPrimary)
-                    if let subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.system(size: 12))
-                            .foregroundStyle(DS.Colors.textTertiary)
-                    }
+        VStack(alignment: .leading, spacing: DS.Space.md) {
+            VStack(alignment: .leading, spacing: DS.Space.xxs) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.Colors.textPrimary)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Colors.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             content
@@ -580,53 +554,23 @@ private struct MetricTile: View {
     let title: String
     let value: String
     let tint: Color
+    var isPrimary: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Space.sm) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(tint)
-                .frame(width: 8, height: 8)
-                .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: DS.Space.xxs) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(DS.Colors.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .font(.system(size: isPrimary ? 26 : 22, weight: .medium, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(DS.Colors.textPrimary)
-
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(DS.Colors.textTertiary)
+                .foregroundStyle(isPrimary ? tint : DS.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
-        .padding(DS.Space.md)
-        .background(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .fill(tint.opacity(0.10))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(tint.opacity(0.30), lineWidth: 1)
-        )
-    }
-}
-
-private struct FeaturePill: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .foregroundStyle(DS.Colors.model400)
-            Text(text)
-        }
-        .font(.system(size: 10, weight: .medium))
-        .foregroundStyle(DS.Colors.textPrimary)
-        .padding(.horizontal, DS.Space.sm)
-        .padding(.vertical, DS.Space.xs)
-        .background(DS.Colors.model400.opacity(0.18))
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(DS.Colors.model400.opacity(0.40), lineWidth: 1))
+        .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
     }
 }
 

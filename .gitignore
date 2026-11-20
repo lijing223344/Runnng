@@ -20,5 +20,11 @@ xcuserdata/
 output/
 scripts/
 
+# Agent / tool caches
+.mimosa/
+.omc/
+.v2c/
+.video_agent/
+
 # Secrets
 *.env

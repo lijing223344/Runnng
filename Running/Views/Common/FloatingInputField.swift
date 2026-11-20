@@ -84,11 +84,12 @@ private struct FloatingInputEditorSheet: View {
                 HStack {
                     Text("current_value".localized)
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.textSecondary)
                     Spacer()
                     Text(currentValue)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(DS.Colors.textPrimary)
                 }
                 .padding(.horizontal, 20)
             }
@@ -99,7 +100,7 @@ private struct FloatingInputEditorSheet: View {
                     keyboardType: keyboardType,
                     text: $draft
                 )
-                .frame(height: 32)
+                .frame(height: 36)
                 .accessibilityIdentifier("floating_input_textfield")
                 if !draft.isEmpty {
                     Button {
@@ -107,24 +108,27 @@ private struct FloatingInputEditorSheet: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 18))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.textSecondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("cancel".localized) // [VERIFY] confirm label matches intent
                     .accessibilityIdentifier("floating_input_clear")
                 }
             }
             .padding(12)
-            .background(DS.Colors.card)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(DS.Colors.field)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(DS.Colors.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Colors.fieldBorder, lineWidth: 1)
             )
             .padding(.horizontal, 20)
             .onAppear { draft = "" }
         }
         .padding(.bottom, 8)
+        .background(DS.Colors.card.ignoresSafeArea())
         .presentationDetents([.height(220)])
+        .presentationDragIndicator(.visible)
     }
 }
 
@@ -198,7 +202,8 @@ struct FloatingIntInputField: View {
             showEditor = true
         } label: {
             Text("\(value)")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .monospacedDigit()
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 2)
                 .frame(width: width, alignment: .trailing)
@@ -255,7 +260,8 @@ struct FloatingDoubleInputField: View {
             showEditor = true
         } label: {
             Text(displayText)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .monospacedDigit()
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 2)
                 .frame(width: width, alignment: .trailing)

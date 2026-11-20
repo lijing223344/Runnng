@@ -43,12 +43,12 @@ enum TrackMath {
 }
 
 enum TrackVisualStyle {
-    static let slotHeight: CGFloat = 12
+    static let slotHeight: CGFloat = 14
     static let compactHeight: CGFloat = 12
     static let activeShadowRadius: CGFloat = 3
     static let activeShadowOpacity: Double = 0.45
     static let activeOutlineWidth: CGFloat = 1
-    static let inlineLabelSize: CGFloat = 8
+    static let inlineLabelSize: CGFloat = 10
 }
 
 extension Array {

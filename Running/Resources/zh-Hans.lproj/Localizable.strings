@@ -47,6 +47,7 @@
 "done" = "完成";
 "save" = "保存";
 "add_plan" = "添加新计划";
+"empty_no_plans" = "还没有计划";
 "add_group" = "添加新分组";
 "edit_group" = "编辑分组";
 "group_name" = "组名";
@@ -62,6 +63,7 @@
 "sound_volume" = "音量";
 "sound_vibration" = "震动反馈";
 "language_settings" = "语言设置";
+"language_settings_note" = "切换后界面即时生效，训练记录不受影响";
 "follow_system" = "跟随系统";
 "chinese" = "中文";
 "english" = "英文";
@@ -73,6 +75,7 @@
 "guest" = "游客";
 "apple_id_login" = "使用 Apple ID 登录";
 "guest_mode" = "游客模式";
+"sign_in_with_apple" = "通过 Apple 登录";
 "sign_in_prompt" = "登录后可跨设备同步您的训练数据";
 "apple_sign_in_not_authorized" = "当前 Apple 账号已取消对此应用的授权。";
 "apple_sign_in_invalid_credential" = "无法读取 Apple 登录凭据，请重试。";
@@ -90,8 +93,29 @@
 "sync_offline" = "离线";
 "icloud_sync" = "iCloud 同步";
 "sound_whistle_short" = "单声哨";
+"sound_split_tick" = "分段点 · 闸门双响";
+"sound_start_triad" = "出发 · 升频信号";
+"sound_rest_bell" = "休息 · 场铃";
+"sound_finish_arpeggio" = "收尾 · 三连降";
+"sound_hint_whistle_short" = "单响长哨，场上最容易听见";
+"sound_hint_whistle_double" = "两次短哨，组间或提醒用";
+"sound_hint_whistle_triple" = "三次短哨，起跑前的集合";
+"sound_hint_whistle_standard" = "发令口吻，正式起跑";
+"sound_hint_whistle_crisp_short" = "一声到底，短而脆，2–4 kHz 最透";
+"sound_hint_air_horn" = "低沉长鸣，终点用";
+"sound_hint_buzzer" = "电子蜂鸣，室内也清楚";
+"sound_hint_split_tick" = "两声极短的高频点，像计时门；风声里也分得清";
+"sound_hint_start_triad" = "先一记低音，再一段升频，出发前听得见";
+"sound_hint_rest_bell" = "非谐和场铃，休息开始，收得住";
+"sound_hint_finish_arpeggio" = "三声下行，与出发的升频正好相反";
+"sound_library" = "提示音库";
+"sound_warning_fixed" = "固定开启";
+"sound_group_timing" = "计时音";
+"sound_group_field" = "哨声与喇叭";
+"sound_library_note" = "点右侧喇叭试听。分组编辑里可为出发、分段、收尾分别指定。";
+"sound_preview_a11y" = "试听";
 "sound_whistle_standard" = "专业起跑哨";
-"sound_whistle_qixinlu" = "七莘路哨声";
+"sound_whistle_crisp_short" = "清脆短哨";
 "sound_whistle_double" = "双声哨";
 "sound_whistle_triple" = "三声哨";
 "sound_air_horn" = "气喇叭";
@@ -185,7 +209,7 @@
 "training_tag_model" = "模型";
 "model_400_title" = "400米模型";
 "model_400_desc" = "输入400米目标成绩，自动生成分段目标、累积用时，并生成一个节奏跑计划。";
-"model_400_home_desc" = "基于男子或女子400米模型快速生成节奏计划。";
+"model_400_home_desc" = "按男女 400 米模型生成节奏计划";
 "model_400_open" = "打开模型";
 "model_400_controls" = "计划输入";
 "model_400_controls_hint" = "选择模型、分段粒度与目标400米成绩。";
@@ -230,11 +254,20 @@
 "model_400_feature_segments" = "分段目标";
 "model_400_feature_metrics" = "关键指标";
 "mini_hurdle_title" = "小栏架栏距";
-"mini_hurdle_home_desc" = "输入 GT 高度，生成 21 栏小栏架递进栏距与现场摆放点。";
+"mini_hurdle_home_desc" = "按 GT 生成 21 栏栏距与摆放点";
 "mini_hurdle_hero_title" = "输入 GT 高度，生成小栏架摆放点";
 "mini_hurdle_desc" = "先量大转子高度，再选择 Mann 默认或 Clark 区间。结果用于现场摆栏和节奏微调，不是医学腿长评估。";
-"mini_hurdle_setup_title" = "摆栏设定";
-"mini_hurdle_setup_subtitle" = "输入 GT 高度，选择 Mann 默认或 Clark 区间；先按结果摆栏，再根据节奏、落点和速度质量微调。";
+"mini_hurdle_step_athlete_title" = "选择运动员";
+"mini_hurdle_step_measure_title" = "测量";
+"mini_hurdle_step_plan_title" = "摆点方案";
+"mini_hurdle_step_measure_subtitle" = "性别定比例区间，GT 定绝对距离；改动即时更新摆点";
+"mini_hurdle_step_athlete_subtitle_temporary" = "选档案可带入性别与 GT；临时测算则直接输入 GT";
+"mini_hurdle_step_plan_subtitle" = "先按 Mann 默认摆，再按现场节奏用 Clark 区间微调";
+"mini_hurdle_step_status_needed" = "待输入";
+"mini_hurdle_save_hint" = "把当前数值存成档案，下次进入直接调用";
+"mini_hurdle_flow_line" = "01 选择运动员 · 02 测量 · 03 摆点方案 · 04 查看摆点";
+"mini_hurdle_step_result_status_format" = "%d 栏";
+
 "mini_hurdle_measurement_title" = "先确认 GT 高度";
 "mini_hurdle_measurement_subtitle" = "GT 高度指站立时股骨大转子上缘到地面的垂直高度。它用于估算短跑小栏架摆放，不等于裆长，也不能沿大腿外侧斜量。";
 "mini_hurdle_measurement_definition_title" = "GT 测量口径";
@@ -257,7 +290,7 @@
 "mini_hurdle_measurement_backup_body" = "若站立位仍难确认，可让运动员屈膝约 90°，缓慢做髋内旋，观察大转子何时最外突；确认骨点后，再回到自然站立位完成正式测量。";
 "mini_hurdle_measurement_note_title" = "先把点找准，再看小数位";
 "mini_hurdle_measurement_note_body" = "大转子点找偏，会把误差放大到每一栏。常见错误是量到髂嵴、沿大腿斜量、身体站歪，或把训练裤缝当作测量线。";
-"mini_hurdle_measurement_illustration_toggle" = "查看标准测量示意图";
+"mini_hurdle_measurement_illustration_toggle" = "标准测量示意图";
 "mini_hurdle_measurement_source_note" = "完整示意图用于训练测量提示；现场仍以教练触诊确认的大转子点和竖直量尺为准。";
 "mini_hurdle_measurement_iliac" = "先分清髂嵴与大转子";
 "mini_hurdle_measurement_iliac_hint" = "大转子位于股骨近端外侧，位置低于髂嵴外缘；现场应先摸到髂嵴外缘，再沿髋外侧向下滑到大转子区域";
@@ -316,7 +349,7 @@
 "mini_hurdle_strategy_template_body" = "GT 倍数先确定末 3 栏最长栏距，再按固定差值回推前 18 栏。7 个加速参考点保留在下方供复核。";
 "mini_hurdle_research_title" = "方案依据";
 "mini_hurdle_research_subtitle" = "Clark 提供训练区间，Mann 提供常规起点；最终是否调距，看节奏、落点、姿态和计时。";
-"mini_hurdle_method_detail_toggle" = "展开 Clark/Mann 依据";
+"mini_hurdle_method_detail_toggle" = "Clark 与 Mann 依据";
 "mini_hurdle_research_clark_title" = "Ken Clark：参考区间";
 "mini_hurdle_research_clark_body_women" = "Clark 的研究给出的女子精英短跑最大步长工作区间，大致为 2.25-2.45×GT。区间下限更便于先把节奏和技术跑稳，上限则更偏向步长和受力挑战。";
 "mini_hurdle_research_clark_body_men" = "Clark 的研究给出的男子精英短跑最大步长工作区间，大致为 2.30-2.50×GT。区间下限更便于先把节奏和技术跑稳，上限则更偏向步长和受力挑战。";
@@ -390,7 +423,7 @@
 "mini_hurdle_progression_phase_3_body" = "摆满 21 栏后，末 3 栏使用目标最长栏距 %@。当前方案第 21 栏起点累计约 %@，第 1-21 栏跨度约 %@；末栏后建议留至少 %@ 跑出距离。";
 "mini_hurdle_quality_title" = "调距判断";
 "mini_hurdle_quality_subtitle" = "先看节奏、落点和速度质量，再决定是否加长栏距。";
-"mini_hurdle_quality_detail_toggle" = "展开判断细节";
+"mini_hurdle_quality_detail_toggle" = "调距判断";
 "mini_hurdle_quality_1" = "理想效果应接近高质量短跑：髋位稳定、触地积极、节奏连续。";
 "mini_hurdle_quality_2" = "若出现明显够栏、落脚点过前、躯干后仰或速度下降，说明栏距设得过长。";
 "mini_hurdle_quality_3" = "若运动员把练习做成刻意抬膝跨栏，而不是自然跑过栏架，应缩短栏距或减少栏数。";
@@ -404,10 +437,7 @@
 "mini_hurdle_invalid_ratio" = "请输入有效的 GT 倍数。";
 "mini_hurdle_athlete_title" = "当前运动员";
 "mini_hurdle_athlete_saved_subtitle" = "切换运动员后，当前设定自动同步到该档案。";
-"mini_hurdle_athlete_temporary_subtitle" = "数值不入档，保存后可在训练现场快速切换。";
 "mini_hurdle_athlete_temporary_name" = "临时数据";
-"mini_hurdle_athlete_saved_badge" = "已选中";
-"mini_hurdle_athlete_temporary_badge" = "无需建档";
 "mini_hurdle_athlete_switch_button" = "切换运动员";
 "mini_hurdle_athlete_save_button" = "保存为运动员";
 "mini_hurdle_athlete_save_as_new_button" = "另存为新运动员";
@@ -438,6 +468,7 @@
 "mini_hurdle_athlete_list_empty_hint" = "在主页设定好参数后，点击「保存为运动员」即可添加。";
 "mini_hurdle_athlete_list_manage_button" = "管理运动员";
 "mini_hurdle_athlete_list_add_button" = "添加运动员";
+"mini_hurdle_athlete_new_short" = "新建";
 "mini_hurdle_profile" = "运动员类型";
 "mini_hurdle_profile_women" = "女子";
 "mini_hurdle_profile_men" = "男子";
@@ -450,3 +481,47 @@
 "mini_hurdle_gt_out_of_range_hint" = "当前输入超出常见范围（50–120 cm / 0.50–1.20 m），请复核测量与单位。";
 "mini_hurdle_gt_decrease" = "减少大转子高度";
 "mini_hurdle_gt_increase" = "增加大转子高度";
+
+"training_items" = "训练项目";
+"sessions" = "次数";
+"last_session" = "最近";
+"this_week" = "本周";
+"minutes_short" = "分";
+
+"history_empty_hint" = "完成一次训练后，记录会出现在这里";
+
+"total_records" = "总记录";
+
+"mini_hurdle_hero_subtitle" = "21 栏栏距与摆放点，现场按点摆栏";
+"mini_hurdle_references_title" = "方法与依据";
+"mini_hurdle_references_subtitle" = "GT 口径、Clark 与 Mann 区间、调距判断";
+"mini_hurdle_span_line" = "1–21 栏跨度 %@";
+"mini_hurdle_overview_compare_toggle" = "对比区间与检查点";
+"mini_hurdle_stage_data_a" = "第 %d 栏 %@ · 目标 %@";
+"mini_hurdle_stage_data_b" = "累计 %@ · 跨度 %@";
+"mini_hurdle_stage_data_final_a" = "末 3 栏 %@ · 21 栏累计 %@";
+"mini_hurdle_stage_data_final_b" = "跨度 %@ · 跑出 %@";
+"mini_hurdle_stage_cue_1" = "用前 11–12 栏建立节奏，先不跑完整链条";
+"mini_hurdle_stage_cue_2" = "节奏、落脚点与躯干稳定后，再扩到前 16 栏";
+"mini_hurdle_stage_cue_3" = "末 3 栏使用目标最长栏距，栏后留足跑出";
+
+"next_up_title" = "接下来";
+"segments_left_format" = "剩 %d 段";
+"segment_row_format" = "第 %d 段";
+"remaining_title" = "剩余";
+"reps_left_label" = "剩余次数";
+"single_rep_label" = "单次";
+"set_label_short" = "组";
+
+"mini_hurdle_source_temporary" = "临时测算";
+"mini_hurdle_source_saved" = "已有档案";
+"mini_hurdle_source_saved_subtitle" = "已带入性别、GT 与比例，摆点直接可看";
+"mini_hurdle_no_athletes_hint" = "还没有档案。按「临时测算」直接输入 GT；需要留档时最后保存";
+"mini_hurdle_archive_title" = "存档";
+"mini_hurdle_saved_available_hint" = "点「已有档案」选一名运动员，性别与 GT 会自动带入";
+"live_target_format" = "目标 %@";
+"live_rest_format" = "休息 %@";
+"live_total_format" = "全程 %d m";
+"live_set_step" = "第 %1$d/%2$d 组";
+"live_interval_phase" = "第 %1$d 组 · 第 %2$d/%3$d 次";
+"live_interval_detail" = "%1$d m · 目标 %2$@";

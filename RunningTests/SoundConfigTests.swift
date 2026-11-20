@@ -7,9 +7,9 @@ final class SoundConfigTests: XCTestCase {
         XCTAssertEqual(SoundType.whistleStandard.displayNameKey, "sound_whistle_standard")
     }
 
-    func testSoundTypeIncludesQixinluWhistleOption() {
+    func testSoundTypeIncludesCrispShortWhistleOption() {
         XCTAssertTrue(SoundType.allCases.contains(.whistleQixinlu))
-        XCTAssertEqual(SoundType.whistleQixinlu.displayNameKey, "sound_whistle_qixinlu")
+        XCTAssertEqual(SoundType.whistleQixinlu.displayNameKey, "sound_whistle_crisp_short")
     }
 
     func testDefaultSoundConfigValues() {

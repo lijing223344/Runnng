@@ -11,7 +11,26 @@ enum SoundType: String, CaseIterable, Identifiable {
     case airHorn         // stadium air horn
     case buzzer          // gym/stadium buzzer
     case whistleStandard // professional start whistle (same timbre as built-in 3-2-1 GO cue)
-    case whistleQixinlu  // extracted whistle sample from qixinlu recording
+    case whistleQixinlu  // crisp short whistle; legacy raw value kept for saved plans
+    case splitTick       // two short high blips: segment reached
+    case startTriad      // rising three tones: go
+    case restBell        // low soft bell: rest begins
+    case finishArpeggio  // rising arpeggio with a long tail: session complete
+
+    /// Cues invented for the timing console — the whistle family stays as
+    /// the field default, these carry the split / rest / finish moments.
+    static var synthesizedCases: [SoundType] {
+        [.startTriad, .splitTick, .restBell, .finishArpeggio]
+    }
+
+    static var timingCases: [SoundType] { synthesizedCases }
+
+    static var fieldCases: [SoundType] {
+        [.whistleShort, .whistleStandard, .whistleQixinlu, .whistleDouble, .whistleTriple, .airHorn, .buzzer]
+    }
+
+    /// Display order: the cues the console sets by default come first.
+    static var paletteOrder: [SoundType] { timingCases + fieldCases }
 
     var id: String { rawValue }
 
@@ -23,7 +42,28 @@ enum SoundType: String, CaseIterable, Identifiable {
         case .airHorn:       return "sound_air_horn"
         case .buzzer:        return "sound_buzzer"
         case .whistleStandard: return "sound_whistle_standard"
-        case .whistleQixinlu: return "sound_whistle_qixinlu"
+        case .whistleQixinlu: return "sound_whistle_crisp_short"
+        case .splitTick:      return "sound_split_tick"
+        case .startTriad:     return "sound_start_triad"
+        case .restBell:       return "sound_rest_bell"
+        case .finishArpeggio: return "sound_finish_arpeggio"
+        }
+    }
+
+    /// One line on when this cue belongs, shown under the name in the palette.
+    var roleHintKey: String {
+        switch self {
+        case .whistleShort:    return "sound_hint_whistle_short"
+        case .whistleDouble:   return "sound_hint_whistle_double"
+        case .whistleTriple:   return "sound_hint_whistle_triple"
+        case .whistleStandard: return "sound_hint_whistle_standard"
+        case .whistleQixinlu:  return "sound_hint_whistle_crisp_short"
+        case .airHorn:         return "sound_hint_air_horn"
+        case .buzzer:          return "sound_hint_buzzer"
+        case .splitTick:       return "sound_hint_split_tick"
+        case .startTriad:      return "sound_hint_start_triad"
+        case .restBell:        return "sound_hint_rest_bell"
+        case .finishArpeggio:  return "sound_hint_finish_arpeggio"
         }
     }
 
@@ -50,6 +90,7 @@ class SoundManager: ObservableObject {
 
     private let engine      = AVAudioEngine()
     private let mixer       = AVAudioMixerNode()
+    private let audioQueue  = DispatchQueue(label: "com.pacecoach.audio-recovery", qos: .userInitiated)
     private let sampleRate: Double = 44_100
     private var cache: [String: AVAudioPCMBuffer] = [:]
     private let audioFormat: AVAudioFormat
@@ -122,19 +163,17 @@ class SoundManager: ObservableObject {
             let type = AVAudioSession.InterruptionType(rawValue: rawType) ?? .ended
             switch type {
             case .began:
+                // Another audio app took the session over. Nothing to do on the
+                // main thread; recovery happens when the interruption ends.
                 break
             case .ended:
-                self.setupAudioSession()
-                self.ensureEngineRunning()
-                if self.runtimeSupportRefCount > 0 {
-                    self.startKeepAlivePlayback()
-                }
+                // Honor the system's resume hint instead of blindly restarting.
+                let options = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt) ?? 0
+                let shouldResume = options & AVAudioSession.InterruptionOptions.shouldResume.rawValue != 0
+                guard shouldResume else { return }
+                self.recoverAudioAfterInterruption()
             @unknown default:
-                self.setupAudioSession()
-                self.ensureEngineRunning()
-                if self.runtimeSupportRefCount > 0 {
-                    self.startKeepAlivePlayback()
-                }
+                self.recoverAudioAfterInterruption()
             }
         }
 
@@ -144,9 +183,11 @@ class SoundManager: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            self.ensureEngineRunning()
-            if self.runtimeSupportRefCount > 0 {
-                self.startKeepAlivePlayback()
+            self.audioQueue.async {
+                self.ensureEngineRunning()
+                if self.runtimeSupportRefCount > 0 {
+                    self.startKeepAlivePlayback()
+                }
             }
         }
 
@@ -156,11 +197,14 @@ class SoundManager: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            self.setupAudioSession()
-            self.ensureEngineRunning()
-            self.prebakeAllSounds()
-            if self.runtimeSupportRefCount > 0 {
-                self.startKeepAlivePlayback()
+            self.audioQueue.async {
+                self.setupAudioSession()
+                self.resetPlayerPool()
+                self.ensureEngineRunning()
+                self.prebakeAllSounds()
+                if self.runtimeSupportRefCount > 0 {
+                    self.startKeepAlivePlayback()
+                }
             }
         }
 
@@ -170,9 +214,11 @@ class SoundManager: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             guard let self, self.runtimeSupportRefCount > 0 else { return }
-            self.setupAudioSession()
-            self.ensureEngineRunning()
-            self.startKeepAlivePlayback()
+            self.audioQueue.async {
+                self.setupAudioSession()
+                self.ensureEngineRunning()
+                self.startKeepAlivePlayback()
+            }
         }
 
         audioSessionObservers = [interruption, routeChange, mediaReset, didEnterBackground]
@@ -306,6 +352,46 @@ class SoundManager: ObservableObject {
 
         // ── 5. Gym buzzer ────────────────────────────────────────
         cache[SoundType.buzzer.rawValue] = makeBuzzer()
+
+        // ── 6. Split: two gate ticks, 2 kHz, 1.2 ms attack ──────
+        cache[SoundType.splitTick.rawValue] = makeCueSequence(
+            [
+                CueSegment(offset: 0, dur: 0.045, freq: 2000, oddHarmonics: true, atk: 0.0012, rel: 0.009),
+                CueSegment(offset: 0.045, dur: 0.045, freq: 2000, oddHarmonics: true, atk: 0.0012, rel: 0.009)
+            ],
+            totalDur: 0.12
+        )
+
+        // ── 7. Start: low set-tone, then one upward sweep ──────
+        cache[SoundType.startTriad.rawValue] = makeCueSequence(
+            [
+                CueSegment(offset: 0, dur: 0.060, freq: 196, oddHarmonics: true, atk: 0.002, rel: 0.018),
+                CueSegment(offset: 0.070, dur: 0.240, freq: 480, sweepTo: 1500, oddHarmonics: true, atk: 0.004, rel: 0.035)
+            ],
+            totalDur: 0.32
+        )
+
+        // ── 8. Rest: struck bell, inharmonic partials ───────────
+        cache[SoundType.restBell.rawValue] = makeCueSequence(
+            [
+                CueSegment(
+                    offset: 0, dur: 0.560,
+                    partials: [(196, 0.60), (466, 0.30), (734, 0.22), (1176, 0.16), (1560, 0.08)],
+                    decayTau: 0.160, atk: 0.004, rel: 0.040
+                )
+            ],
+            totalDur: 0.57
+        )
+
+        // ── 9. Finish: three descending hard beeps ─────────────
+        cache[SoundType.finishArpeggio.rawValue] = makeCueSequence(
+            [
+                CueSegment(offset: 0,     dur: 0.090, freq: 1400, oddHarmonics: true, atk: 0.0015, rel: 0.020),
+                CueSegment(offset: 0.115, dur: 0.090, freq: 1050, oddHarmonics: true, atk: 0.0015, rel: 0.020),
+                CueSegment(offset: 0.230, dur: 0.220, freq: 700,  oddHarmonics: true, atk: 0.0015, rel: 0.150)
+            ],
+            totalDur: 0.45
+        )
     }
 
     // MARK: - Public API
@@ -431,6 +517,31 @@ class SoundManager: ObservableObject {
         } catch {
             debugLog("SoundManager: failed to restart engine: \(error)")
         }
+    }
+
+    /// Rebuild the session/engine after an interruption ends. The engine and
+    /// its player pool were torn down by the system while another app held
+    /// audio; resetting the pool and restarting off the main thread keeps the
+    /// 60 fps timer from stalling when the user switches back to PaceCoach.
+    private func recoverAudioAfterInterruption() {
+        audioQueue.async { [weak self] in
+            guard let self else { return }
+            self.setupAudioSession()
+            self.resetPlayerPool()
+            self.ensureEngineRunning()
+            if self.runtimeSupportRefCount > 0 {
+                self.startKeepAlivePlayback()
+            }
+        }
+    }
+
+    /// Stop and detach every pooled player so stale scheduled buffers do not
+    /// fire against a restarted engine after an interruption.
+    private func resetPlayerPool() {
+        for player in playerPool {
+            player.stop()
+        }
+        keepAlivePlayer?.stop()
     }
 
     private func ensurePrepared() {
@@ -916,6 +1027,84 @@ class SoundManager: ObservableObject {
             }
         }
         normalizeToTarget(data: data, frames: Int(totalFrames), target: 0.85, drive: globalLoudnessDrive)
+        return buf
+    }
+
+    // MARK: - Cue synthesis (timing console, not phone notifications)
+    //
+    // Field cues need three things a stock beep lacks: a piezo-thin attack so
+    // the tick cuts through wind and crowd, harmonics that read as an
+    // instrument rather than a melody, and a hard stop so the athlete cannot
+    // confuse two events. Bells stay inharmonic, sweeps stay one-directional.
+
+    private struct CueSegment {
+        var offset: Double
+        var dur: Double
+        var freq: Float = 0
+        var sweepTo: Float? = nil
+        var oddHarmonics: Bool = false
+        var partials: [(Float, Float)]? = nil   // (frequency, amplitude)
+        var decayTau: Double? = nil
+        var atk: Double = 0.002
+        var rel: Double = 0.008
+    }
+
+    private func makeCueSequence(_ segments: [CueSegment], totalDur: Double,
+                                 target: Float = 0.95) -> AVAudioPCMBuffer? {
+        let totalFrames = AVAudioFrameCount(sampleRate * totalDur)
+        guard let buf = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: totalFrames),
+              let data = buf.floatChannelData?[0] else { return nil }
+        buf.frameLength = totalFrames
+        for i in 0..<Int(totalFrames) { data[i] = 0 }
+
+        for seg in segments {
+            let startF = Int(sampleRate * seg.offset)
+            let n = Int(sampleRate * seg.dur)
+            guard n > 0 else { continue }
+            let atkF = max(1, Int(sampleRate * seg.atk))
+            let relF = max(1, Int(sampleRate * seg.rel))
+            var phase: Float = 0
+
+            for i in 0..<n {
+                let g = startF + i
+                guard g < Int(totalFrames) else { break }
+                let t = Float(i) / Float(sampleRate)
+
+                var env: Float = 1
+                if i < atkF { env = Float(i) / Float(atkF) }
+                if let tau = seg.decayTau {
+                    env *= Float(exp(-Double(t) / tau))
+                } else if i >= n - relF {
+                    env *= Float(n - i) / Float(relF)
+                }
+
+                let s: Float
+                if let partials = seg.partials {
+                    var v: Float = 0
+                    for p in partials { v += sinf(2 * .pi * p.0 * t) * p.1 }
+                    s = v
+                } else {
+                    let f: Float
+                    if let sweepTo = seg.sweepTo {
+                        f = seg.freq + (sweepTo - seg.freq) * Float(i) / Float(n)
+                    } else {
+                        f = seg.freq
+                    }
+                    phase += 2 * .pi * f / Float(sampleRate)
+                    if seg.oddHarmonics {
+                        // Fundamental plus its third: a beeper tone, no chord,
+                        // and no high-order hash that reads as a cheap buzzer.
+                        s = (sinf(phase) + sinf(3 * phase) / 3) * 0.82
+                    } else {
+                        s = sinf(phase) + sinf(3 * phase) * 0.22 + sinf(5 * phase) * 0.10
+                    }
+                }
+                data[g] += s * env
+            }
+        }
+
+        // Cues stay clean: the level is raised by the player, not by tanh drive.
+        normalizeToTarget(data: data, frames: Int(totalFrames), target: target, drive: 1.0)
         return buf
     }
 

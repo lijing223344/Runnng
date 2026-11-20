@@ -67,6 +67,7 @@ struct IntervalTrainingSetupView: View {
             }
             bottomBar
         }
+        .frame(maxWidth: 1000)
         .background(TrainingPageBackground())
         .navigationTitle("interval_training".localized)
         .navigationBarTitleDisplayMode(.inline)
@@ -87,17 +88,22 @@ struct IntervalTrainingSetupView: View {
                 }
             }
         }
-        .sheet(item: $editingGroup) { group in
+        .fullScreenCover(item: $editingGroup) { group in
+            ZStack {
+                DS.Colors.bg.ignoresSafeArea()
             IntervalGroupEditorView(group: group) { saved in
                 if let idx = training.groups.firstIndex(where: { $0.id == saved.id }) {
                     training.groups[idx] = saved
                 } else {
                     training.groups.append(saved)
-                    selectedGroupIDs.insert(saved.id)
+                    // 新建后只勾这一条，避免与旧方案一起被启动。
+                    selectedGroupIDs = [saved.id]
                 }
                 persistTraining()
                 syncSelectedGroups()
             }
+            }
+            .presentationBackground(DS.Colors.bg)
         }
         .fullScreenCover(item: $trainingToStart, onDismiss: handleTrainingDismiss) { launchTraining in
             IntervalTrainingView(training: launchTraining)
@@ -114,7 +120,7 @@ struct IntervalTrainingSetupView: View {
             if isQuickStart, training.groups.isEmpty {
                 initializeQuickStartTrainingIfNeeded()
             }
-            syncSelectedGroups(autoSelectAllIfEmpty: true)
+            syncSelectedGroups(selectFirstIfEmpty: true)
             refreshHistoryPlans(selectFirstIfNeeded: true)
         }
         .onChange(of: training.countdownSeconds) { _, _ in
@@ -129,38 +135,37 @@ struct IntervalTrainingSetupView: View {
 
     // MARK: - Empty State
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            ZStack {
-                Circle()
-                    .fill(DS.Colors.interval.opacity(0.08))
-                    .frame(width: 100, height: 100)
-                Image(systemName: "repeat.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.orange.opacity(0.6))
-            }
-            Text("add_plan".localized)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: DS.Space.sm) {
+
+            Image(systemName: "repeat")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(DS.Colors.textTertiary)
+
+            Text("empty_no_plans".localized)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(DS.Colors.textPrimary)
+                .padding(.top, DS.Space.xxs)
+
             Text("interval_training_desc".localized)
                 .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 48)
+                .foregroundStyle(DS.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             if !isHistoryTab {
                 Button(action: createNewPlan) {
                     Label("add_plan".localized, systemImage: "plus")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(minWidth: 160, minHeight: 46)
-                        .background(DS.Colors.interval)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(DSSecondaryButtonStyle())
+                .frame(width: 168)
+                .padding(.top, DS.Space.sm)
                 .accessibilityIdentifier("interval_add_plan_empty_button")
             }
-            Spacer()
+
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, DS.Space.page)
+        .padding(.top, DS.Space.xxl)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var isHistoryTab: Bool {
@@ -168,13 +173,9 @@ struct IntervalTrainingSetupView: View {
     }
 
     private var tabSwitcher: some View {
-        Picker("", selection: $activeTab) {
-            Text("plan_create_tab".localized)
-                .tag(SetupTab.create)
-            Text("plan_history_tab".localized)
-                .tag(SetupTab.history)
+        DSSegmentedPicker(selection: $activeTab, options: SetupTab.allCases, accent: DS.Colors.interval) { tab in
+            tab == .create ? "plan_create_tab".localized : "plan_history_tab".localized
         }
-        .pickerStyle(.segmented)
         .accessibilityIdentifier("interval_setup_tab_picker")
     }
 
@@ -314,44 +315,64 @@ struct IntervalTrainingSetupView: View {
         let actionTitle = isHistoryTab ? "start_selected_plan".localized : "start_training".localized
         let selectedCount = isHistoryTab ? selectedHistoryPlanIDs.count : selectedGroupIDs.count
         let buttonTitle = selectedCount > 0 ? "\(actionTitle) (\(selectedCount))" : actionTitle
-        return VStack(spacing: 10) {
+        return VStack(alignment: .leading, spacing: DS.Space.sm) {
+            if !sessionSummary.isEmpty {
+                Text(sessionSummary)
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(DS.Colors.textTertiary)
+            }
+
             Button(action: isHistoryTab ? startSelectedHistoryPlan : startSelectedTraining) {
-                HStack(spacing: 8) {
+                HStack(spacing: DS.Space.sm) {
                     Image(systemName: "play.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .medium))
                     Text(buttonTitle)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 16, weight: .medium))
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                 }
-                .foregroundStyle(canStart ? Color.white : DS.Colors.textTertiary)
+                .foregroundStyle(canStart ? DS.Colors.bg : DS.Colors.textTertiary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .trainingPrimaryActionSurface(
-                    isEnabled: canStart,
-                    colors: [DS.Colors.interval]
-                )
+                .frame(height: 52)
+                .trainingPrimaryActionSurface(isEnabled: canStart, colors: [DS.Colors.interval])
             }
             .disabled(!canStart)
+            .buttonStyle(ScaleButtonStyle())
             .accessibilityIdentifier("interval_start_training_button")
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 28)
+        .padding(.horizontal, DS.Space.page)
+        .padding(.top, DS.Space.md)
+        .padding(.bottom, DS.Space.xl)
         .background(
-            DS.Colors.card
-                .overlay(alignment: .top) { Rectangle().fill(DS.Colors.border).frame(height: 1) }
+            DS.Colors.bg
+                .overlay(alignment: .top) { Rectangle().fill(DS.Colors.borderLight).frame(height: 1) }
         )
+    }
+
+    private var sessionSummary: String {
+        if isHistoryTab {
+            let count = selectedHistoryPlanIDs.count
+            return count > 0 ? "\(count)\("groups".localized)" : ""
+        }
+        let groups = training.groups.filter { selectedGroupIDs.contains($0.id) }
+        guard !groups.isEmpty else { return "" }
+        let distance: Int = groups.reduce(0) { (sum: Int, group: IntervalGroup) -> Int in
+            sum + group.runDistance * group.effectiveRepetitions
+        }
+        let seconds: Double = groups.reduce(0.0) { (sum: Double, group: IntervalGroup) -> Double in
+            sum + Double(group.runTime + group.restTime) * Double(group.effectiveRepetitions)
+        }
+        return "\(groups.count)\("groups".localized) · \(distance)\("unit_meter_short".localized) · \(formatDuration(seconds))"
     }
 
     private func addGroup() {
         var g = IntervalGroup()
         g.sortOrder = training.groups.count
         g.colorHex = GroupColor.allCases[training.groups.count % GroupColor.allCases.count].rawValue
-        let sound = SoundType.allCases[training.groups.count % SoundType.allCases.count]
-        g.startSound = sound
-        g.restSound = sound
-        g.endSound = sound
+        g.startSound = .startTriad
+        g.restSound = .restBell
+        g.endSound = .finishArpeggio
         editingGroup = g
     }
 
@@ -400,7 +421,7 @@ struct IntervalTrainingSetupView: View {
         training = normalizedTraining(decoded)
         copiedHistoryPlanSourceID = nil
         persistTraining()
-        syncSelectedGroups(autoSelectAllIfEmpty: true)
+        syncSelectedGroups(selectFirstIfEmpty: true)
         selectedHistoryPlanIDs = [plan.id]
         activeTab = .create
     }
@@ -410,7 +431,7 @@ struct IntervalTrainingSetupView: View {
         training = normalizedTraining(decoded)
         copiedHistoryPlanSourceID = plan.id
         persistTraining()
-        syncSelectedGroups(autoSelectAllIfEmpty: true)
+        syncSelectedGroups(selectFirstIfEmpty: true)
         selectedHistoryPlanIDs = [plan.id]
         activeTab = .create
     }
@@ -461,7 +482,10 @@ struct IntervalTrainingSetupView: View {
     }
 
     private func formattedDateTime(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .shortened)
+        date.formatted(
+            Date.FormatStyle(date: .abbreviated, time: .shortened)
+                .locale(LocalizationManager.shared.locale)
+        )
     }
 
     private func decodeIntervalPlan(_ plan: SavedPlan) -> IntervalTraining? {
@@ -507,10 +531,9 @@ struct IntervalTrainingSetupView: View {
         var defaultGroup = IntervalGroup()
         defaultGroup.sortOrder = 0
         defaultGroup.colorHex = GroupColor.allCases[0].rawValue
-        let sound = SoundType.allCases[0]
-        defaultGroup.startSound = sound
-        defaultGroup.restSound = sound
-        defaultGroup.endSound = sound
+        defaultGroup.startSound = .startTriad
+        defaultGroup.restSound = .restBell
+        defaultGroup.endSound = .finishArpeggio
         training = IntervalTraining(
             groups: [defaultGroup],
             countdownSeconds: max(1, training.countdownSeconds)
@@ -533,11 +556,14 @@ struct IntervalTrainingSetupView: View {
         }
     }
 
-    private func syncSelectedGroups(autoSelectAllIfEmpty: Bool = false) {
+    private func syncSelectedGroups(selectFirstIfEmpty: Bool = false) {
         let existing = Set(training.groups.map { $0.id })
         selectedGroupIDs = selectedGroupIDs.intersection(existing)
-        if autoSelectAllIfEmpty && selectedGroupIDs.isEmpty {
-            selectedGroupIDs = existing
+        if selectFirstIfEmpty && selectedGroupIDs.isEmpty,
+           let first = training.groups.min(by: { $0.sortOrder < $1.sortOrder }) {
+            // 旧逻辑会在空选时勾上全部分组，一次启动多个方案容易误开。
+            // 现在只预选排序最前的一个，其余由用户显式勾选。
+            selectedGroupIDs = [first.id]
         }
     }
 
@@ -569,22 +595,19 @@ struct IntervalTrainingSetupView: View {
 
     private var startCountdownCard: some View {
         EditorCard(title: "countdown".localized, icon: "clock.badge.checkmark.fill", iconColor: DS.Colors.rest) {
-            HStack(spacing: 8) {
+            HStack(spacing: DS.Space.xs) {
                 ForEach([3, 5, 10, 15, 20], id: \.self) { sec in
-                    Button(action: { training.countdownSeconds = sec }) {
-                        Text("\(sec)\("sec_label".localized)")
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(training.countdownSeconds == sec ? DS.Colors.rest : DS.Colors.cardHover)
-                            .foregroundStyle(training.countdownSeconds == sec ? .white : .primary)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    DSPresetTile(
+                        title: "\(sec)\("sec_label".localized)",
+                        isSelected: training.countdownSeconds == sec
+                    ) {
+                        training.countdownSeconds = sec
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
     }
+
 }
 
 // MARK: - Group Card
@@ -599,7 +622,7 @@ struct IntervalGroupCard: View {
     private var groupColor: Color { Color(hex: group.colorHex) ?? .orange }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
+        HStack(alignment: .center, spacing: DS.Space.md) {
             Button(action: onToggleSelect) {
                 TrainingSelectionIndicator(isSelected: isSelected, accent: DS.Colors.interval)
                     .frame(width: 44, height: 44)
@@ -609,33 +632,34 @@ struct IntervalGroupCard: View {
             .accessibilityLabel(isSelected ? "a11y_deselect_group".localized : "a11y_select_group".localized)
             .accessibilityIdentifier("interval_group_select_\(group.id.uuidString)")
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: DS.Space.sm) {
+                HStack(alignment: .firstTextBaseline, spacing: DS.Space.sm) {
                     Circle()
                         .fill(groupColor)
-                        .frame(width: 10, height: 10)
+                        .frame(width: 8, height: 8)
 
                     Text(group.name)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.primary)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(DS.Colors.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
 
-                    Spacer(minLength: 8)
+                    Spacer(minLength: DS.Space.sm)
 
                     Text("\(group.effectiveRepetitions) \("repetitions".localized)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, design: .monospaced))
+                        .monospacedDigit()
+                        .foregroundStyle(DS.Colors.textTertiary)
                 }
 
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DS.Space.md) {
                         StatChip(icon: "figure.run", value: "\(group.runDistance)\("unit_meter_short".localized)")
                         StatChip(icon: "clock", value: "\(group.runTime)\("sec_label".localized)/\(group.restTime)\("sec_label".localized)")
                         StatChip(icon: "speedometer", value: paceString)
                     }
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: DS.Space.xxs) {
+                        HStack(spacing: DS.Space.md) {
                             StatChip(icon: "figure.run", value: "\(group.runDistance)\("unit_meter_short".localized)")
                             StatChip(icon: "clock", value: "\(group.runTime)\("sec_label".localized)/\(group.restTime)\("sec_label".localized)")
                         }
@@ -644,39 +668,39 @@ struct IntervalGroupCard: View {
                 }
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: DS.Space.sm)
 
-            HStack(spacing: 8) {
+            HStack(spacing: DS.Space.xxs) {
                 Button(action: onDuplicate) {
                     Image(systemName: "doc.on.doc")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(DS.Colors.interval)
-                        .frame(width: 36, height: 36)
-                        .background(DS.Colors.interval.opacity(DS.Opacity.light))
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(DS.Colors.textTertiary)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("a11y_duplicate_group".localized)
                 .accessibilityIdentifier("interval_group_duplicate_\(group.id.uuidString)")
+
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.orange)
-                        .frame(width: 36, height: 36)
-                        .background(DS.Colors.interval.opacity(DS.Opacity.light))
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(DS.Colors.textTertiary)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("a11y_edit_group".localized)
                 .accessibilityIdentifier("interval_group_edit_\(group.id.uuidString)")
             }
-            .buttonStyle(.borderless)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 14)
+        .padding(.horizontal, DS.Space.lg)
+        .padding(.vertical, DS.Space.md)
         .frame(maxWidth: .infinity)
         .trainingSelectableCardContainer(
             accent: DS.Colors.interval,
             isSelected: isSelected,
-            cornerRadius: 16
+            cornerRadius: DS.Radius.lg
         )
         .accessibilityIdentifier("interval_group_card_\(group.id.uuidString)")
     }
@@ -810,23 +834,8 @@ struct IntervalGroupEditorView: View {
                 }
                 .background(TrainingPageBackground())
                 .safeAreaInset(edge: .bottom) { editorBottomSaveBar }
-                .navigationTitle(isNew ? "add_plan".localized : "edit_group".localized)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(DS.Colors.bg, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button("cancel".localized) { dismiss() }
-                            .accessibilityIdentifier("interval_editor_cancel_button")
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("save".localized) {
-                            normalizeAndSave()
-                        }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
-                        .accessibilityIdentifier("interval_editor_save_button")
-                    }
-                }
+                .safeAreaInset(edge: .top, spacing: 0) { editorHeader }
+                .toolbar(.hidden, for: .navigationBar)
                 .onAppear {
                     group = prepareGroupForEditor(group)
                     customRepeats = Array((group.customRepeats ?? []).prefix(IntervalPlanLimits.maxCustomRepeats))
@@ -857,31 +866,54 @@ struct IntervalGroupEditorView: View {
     }
 
     /// Bottom fixed save bar — save without scrolling back to top (audit A2).
+    private var editorHeader: some View {
+        ZStack {
+            Text(isNew ? "add_plan".localized : "edit_group".localized)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(DS.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 72)
+
+            HStack {
+                Button("cancel".localized) { dismiss() }
+                    .font(.system(size: 15))
+                    .foregroundStyle(DS.Colors.textSecondary)
+                    .accessibilityIdentifier("interval_editor_cancel_button")
+                Spacer()
+            }
+            .padding(.horizontal, DS.Space.page)
+        }
+        .frame(height: 52)
+        .frame(maxWidth: .infinity)
+        .background(DS.Colors.bg.ignoresSafeArea(edges: .top))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(DS.Colors.borderLight).frame(height: 1)
+        }
+    }
+
     private var editorBottomSaveBar: some View {
         VStack(spacing: 0) {
-            LinearGradient(
-                colors: [DS.Colors.bg.opacity(0), DS.Colors.bg],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 14)
-            .allowsHitTesting(false)
-
             Button(action: normalizeAndSave) {
                 Label("save".localized, systemImage: "checkmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(canSave ? .white : DS.Colors.textTertiary)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(canSave ? DS.Colors.bg : DS.Colors.textTertiary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 54)
+                    .frame(height: 52)
                     .trainingPrimaryActionSurface(isEnabled: canSave)
             }
             .buttonStyle(ScaleButtonStyle())
             .disabled(!canSave)
             .accessibilityIdentifier("interval_editor_save_bar_button")
-
-            DS.Colors.bg.frame(height: 8)
         }
-        .background(DS.Colors.bg.ignoresSafeArea(edges: .bottom))
+        .padding(.horizontal, DS.Space.page)
+        .padding(.top, DS.Space.md)
+        .padding(.bottom, DS.Space.md)
+        .background(
+            DS.Colors.bg
+                .overlay(alignment: .top) { Rectangle().fill(DS.Colors.borderLight).frame(height: 1) }
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 
     private var nameCard: some View {
@@ -901,18 +933,11 @@ struct IntervalGroupEditorView: View {
         EditorCard(title: "run_distance".localized, icon: "arrow.right.circle.fill", iconColor: DS.Colors.interval) {
             VStack(spacing: 10) {
                 let presets = [50, 100, 150, 200, 300, 400]
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DS.Space.sm), count: 3), spacing: DS.Space.xs) {
                     ForEach(presets, id: \.self) { m in
-                        Button(action: { group.runDistance = m }) {
-                            Text("\(m)\("unit_meter_short".localized)")
-                                .font(.system(size: 14, weight: .medium))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(group.runDistance == m ? DS.Colors.interval : DS.Colors.cardHover)
-                                .foregroundStyle(group.runDistance == m ? .white : .primary)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        DSPresetTile(title: "\(m)\("unit_meter_short".localized)", isSelected: group.runDistance == m) {
+                            group.runDistance = m
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 Divider()
@@ -996,18 +1021,11 @@ struct IntervalGroupEditorView: View {
     private var repetitionsCard: some View {
         EditorCard(title: "reps_label".localized, icon: "repeat", iconColor: DS.Colors.interval) {
             VStack(spacing: 10) {
-                HStack(spacing: 8) {
+                HStack(spacing: DS.Space.xxs) {
                     ForEach([4, 6, 8, 10, 12, 15], id: \.self) { value in
-                        Button(action: { group.repetitions = value }) {
-                            Text("×\(value)")
-                                .font(.system(size: 14, weight: .medium))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(group.repetitions == value ? DS.Colors.interval : DS.Colors.cardHover)
-                                .foregroundStyle(group.repetitions == value ? .white : .primary)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        DSPresetTile(title: "×\(value)", isSelected: group.repetitions == value) {
+                            group.repetitions = value
                         }
-                        .buttonStyle(.plain)
                     }
                 }
 
@@ -1064,15 +1082,24 @@ struct IntervalGroupEditorView: View {
                                     TrainingIntensity.isQuickSelected(
                                         currentPercent: parsedIntensityPercent,
                                         option: option
-                                    ) ? DS.Colors.interval : DS.Colors.cardHover
+                                    ) ? DS.Colors.field : Color.clear
                                 )
                                 .foregroundStyle(
                                     TrainingIntensity.isQuickSelected(
                                         currentPercent: parsedIntensityPercent,
                                         option: option
-                                    ) ? .white : .primary
+                                    ) ? DS.Colors.textPrimary : DS.Colors.textSecondary
                                 )
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                        .stroke(
+                                            TrainingIntensity.isQuickSelected(
+                                                currentPercent: parsedIntensityPercent,
+                                                option: option
+                                            ) ? DS.Colors.border : Color.clear,
+                                            lineWidth: 1
+                                        )
+                                )
                         }
                         .buttonStyle(.plain)
                     }
@@ -1602,38 +1629,17 @@ struct IntervalGroupEditorView: View {
     private var soundCard: some View {
         EditorCard(title: "sound_settings".localized, icon: "speaker.wave.2.fill", iconColor: .blue) {
             VStack(spacing: 0) {
-                soundSettingRow(label: "run_start_sound".localized, selection: $group.startSound)
+                soundSettingRow(label: "run_start_sound".localized, selection: $group.startSound, identifier: "interval_cue_start_row")
                 Divider().padding(.leading, 4)
-                soundSettingRow(label: "rest_start_sound".localized, selection: $group.restSound)
+                soundSettingRow(label: "rest_start_sound".localized, selection: $group.restSound, identifier: "interval_cue_rest_row")
                 Divider().padding(.leading, 4)
-                soundSettingRow(label: "end_sound".localized, selection: $group.endSound)
+                soundSettingRow(label: "end_sound".localized, selection: $group.endSound, identifier: "interval_cue_end_row")
             }
         }
     }
 
-    @ViewBuilder
-    private func soundSettingRow(label: String, selection: Binding<SoundType>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .font(.system(size: 15))
-                .foregroundStyle(.primary)
-            Spacer()
-            Picker("", selection: selection) {
-                ForEach(SoundType.allCases) { sound in
-                    Text(sound.displayNameKey.localized).tag(sound)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(DS.Colors.field)
-            .clipShape(RoundedRectangle(cornerRadius: 9))
-            .onChange(of: selection.wrappedValue) { _, v in
-                SoundManager.shared.playSound(v)
-            }
-        }
-        .padding(.vertical, 10)
+    private func soundSettingRow(label: String, selection: Binding<SoundType>, identifier: String) -> some View {
+        SoundCueRow(label: label, selection: selection, identifier: identifier, accent: DS.Colors.interval)
     }
 
     @ViewBuilder
@@ -1710,22 +1716,13 @@ struct IntervalGroupEditorView: View {
                 Spacer()
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DS.Space.sm), count: 4), spacing: DS.Space.xs) {
                 ForEach(presets, id: \.self) { value in
                     let current = max(0, min.wrappedValue) * 60 + max(0, sec.wrappedValue)
-                    Button(action: {
+                    DSPresetTile(title: "\(value)\("sec_label".localized)", isSelected: current == value) {
                         min.wrappedValue = max(0, value / 60)
                         sec.wrappedValue = max(0, value % 60)
-                    }) {
-                        Text("\(value)\("sec_label".localized)")
-                            .font(.system(size: 13, weight: .medium))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 7)
-                            .background(current == value ? tint : DS.Colors.cardHover)
-                            .foregroundStyle(current == value ? .white : .primary)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }

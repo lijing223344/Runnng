@@ -1,4 +1,6 @@
 import SwiftUI
+import Combine
+import UIKit
 import AuthenticationServices
 
 struct LoginView: View {
@@ -6,49 +8,67 @@ struct LoginView: View {
     @ObservedObject private var storage = StorageManager.shared
     @ObservedObject private var localization = LocalizationManager.shared
     @State private var errorMessage = ""
+    @StateObject private var appleSignIn = AppleSignInCoordinator()
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Spacer()
-
-                // MARK: - Hero
-                VStack(spacing: DS.Space.lg) {
-                    ZStack {
-                        Circle()
-                            .fill(DS.Colors.paceRun.opacity(DS.Opacity.light))
-                            .frame(width: 100, height: 100)
-                        Image(systemName: "figure.run")
-                            .font(.system(size: 44, weight: .medium))
-                            .foregroundStyle(DS.Colors.paceRun)
-                    }
-
-                    Text("app_name".localized)
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(DS.Colors.textPrimary)
-
-                    Text("sign_in_prompt".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(DS.Colors.textTertiary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
+                DSModalHeader(
+                    leadingTitle: "cancel".localized,
+                    leadingIdentifier: "login_cancel_button"
+                ) {
+                    dismiss()
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
 
-                // MARK: - Actions
+                VStack(spacing: DS.Space.md) {
+                    DSLaneRule(color: DS.Colors.paceRun, width: 28)
+
+                    Text("app_name".localized)
+                        .font(.system(size: 27, weight: .medium))
+                        .foregroundStyle(DS.Colors.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                    Text("sign_in_prompt".localized)
+                        .font(.system(size: 13))
+                        .foregroundStyle(DS.Colors.textTertiary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, DS.Space.xxxl)
+                }
+                .padding(.horizontal, DS.Space.page)
+
+                Spacer(minLength: 0)
+
                 VStack(spacing: DS.Space.lg) {
-                    SignInWithAppleButton(.signIn) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        handleAppleSignIn(result)
+                    // Custom-rendered button: the system control takes the
+                    // device locale, which left a Chinese label in the
+                    // English interface. Copy follows the app language.
+                    Button {
+                        appleSignIn.start { result in
+                            handleAppleSignIn(result)
+                        }
+                    } label: {
+                        HStack(spacing: DS.Space.sm) {
+                            Image(systemName: "applelogo")
+                                .font(.system(size: 17, weight: .medium))
+                            Text("sign_in_with_apple".localized)
+                                .font(.system(size: 16, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .foregroundStyle(Color.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .fill(Color.white)
+                        )
                     }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("login_apple_button")
-                    .signInWithAppleButtonStyle(.white)
-                    .frame(height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xl))
 
-                    // Divider
                     HStack(spacing: DS.Space.md) {
                         Rectangle().fill(DS.Colors.divider).frame(height: 1)
                         Text("or".localized)
@@ -62,36 +82,32 @@ struct LoginView: View {
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(DS.Colors.textSecondary)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(DS.Colors.card)
-                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xl))
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                    .fill(DS.Colors.card)
+                            )
                             .overlay(
-                                RoundedRectangle(cornerRadius: DS.Radius.xl)
+                                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
                                     .stroke(DS.Colors.border, lineWidth: 1)
                             )
                     }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("login_guest_button")
 
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
                             .font(.system(size: 12))
                             .foregroundStyle(DS.Colors.error)
+                            .multilineTextAlignment(.center)
                             .transition(.opacity)
                     }
                 }
-                .padding(.horizontal, DS.Space.xxl)
-
-                Spacer()
-                    .frame(height: 60)
+                .padding(.horizontal, DS.Space.page)
+                .padding(.bottom, DS.Space.xxxl)
             }
             .background(DS.Colors.bg.ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("cancel".localized) { dismiss() }
-                        .foregroundStyle(DS.Colors.textSecondary)
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
@@ -133,6 +149,45 @@ struct LoginView: View {
             }
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+final class AppleSignInCoordinator: NSObject, ObservableObject,
+    ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    let objectWillChange = ObservableObjectPublisher()
+    private var completion: ((Result<ASAuthorization, Error>) -> Void)?
+
+    func start(_ completion: @escaping (Result<ASAuthorization, Error>) -> Void) {
+        self.completion = completion
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        completion?(.success(authorization))
+        completion = nil
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithError error: Error
+    ) {
+        completion?(.failure(error))
+        completion = nil
     }
 }
 
