@@ -524,3 +524,7 @@
 "live_set_step" = "Set %1$d/%2$d";
 "live_interval_phase" = "Set %1$d · Rep %2$d/%3$d";
 "live_interval_detail" = "%1$d m · target %2$@";
+
+"live_activity_disabled_title" = "Lock Screen Card Off";
+"live_activity_disabled_detail" = "Allow Live Activities to follow the session on the Lock Screen and Dynamic Island";
+"live_activity_open_settings" = "Settings";

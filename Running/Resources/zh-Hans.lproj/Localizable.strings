@@ -525,3 +525,7 @@
 "live_set_step" = "第 %1$d/%2$d 组";
 "live_interval_phase" = "第 %1$d 组 · 第 %2$d/%3$d 次";
 "live_interval_detail" = "%1$d m · 目标 %2$@";
+
+"live_activity_disabled_title" = "锁屏与灵动岛卡片未开启";
+"live_activity_disabled_detail" = "开启实时活动后，可在锁屏与灵动岛查看训练进度";
+"live_activity_open_settings" = "去设置";

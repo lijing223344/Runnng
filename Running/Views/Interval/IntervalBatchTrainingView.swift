@@ -26,7 +26,13 @@ struct IntervalBatchTrainingView: View {
     private let maxStateTransitionsPerTick = 512
 
     private var allCompleted: Bool {
-        !planStates.isEmpty && planStates.allSatisfy { !$0.groupStates.isEmpty && $0.groupStates.allSatisfy(\.isCompleted) } && !isCountdown
+        !planStates.isEmpty && planStates.allSatisfy({ !$0.groupStates.isEmpty && $0.groupStates.allSatisfy(\.isCompleted) }) && !isCountdown
+    }
+
+    /// iOS asks the user to allow Live Activities on the app's first request;
+    /// if it was declined, offer a way back instead of failing silently.
+    private var showsLiveActivityHint: Bool {
+        sessionStartedAt != nil && !TrainingLiveActivityManager.shared.isEnabled
     }
 
     var body: some View {
@@ -41,6 +47,11 @@ struct IntervalBatchTrainingView: View {
 
             VStack {
                 Spacer()
+                if showsLiveActivityHint {
+                    LiveActivityUnavailableHint()
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                }
                 bottomControls
             }
         }

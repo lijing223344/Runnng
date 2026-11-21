@@ -113,10 +113,14 @@ class SoundManager: ObservableObject {
     private var isPrepared = false
 
     private init() {
-        guard let fmt = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) else {
-            fatalError("SoundManager: failed to create audio format")
+        // 44.1 kHz mono is universally supported; the mixer-format fallback is
+        // a theoretical last resort that keeps a failed lookup from killing
+        // the app at launch — audio degrades, the session does not.
+        if let fmt = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) {
+            audioFormat = fmt
+        } else {
+            audioFormat = engine.mainMixerNode.outputFormat(forBus: 0)
         }
-        audioFormat = fmt
         isAudioDisabled = AppRuntimeConfiguration.shouldDisableAudio()
         isDebugLoggingEnabled = AppRuntimeConfiguration.shouldEnableAudioDebugLogs()
 #if targetEnvironment(simulator)
