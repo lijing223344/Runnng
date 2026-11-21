@@ -1,76 +1,34 @@
-# Codex 核心规范
+# 项目核心规范
 
-## 工作模式：Superpowers + AI 协作
+## 工作模式：单 Agent 直接实现 + 可选多 Agent 协作
 
-### 角色分工
+### 默认模式（当前生效）
 
-**Codex（我）——架构师 / 项目经理**：
-- 需求分析、架构设计、任务拆分
-- 使用 Superpowers 进行规划、审查、调试
-- 代码审核、最终验收、Git 提交管理
-- **绝对不亲自编写代码**，所有编码任务必须委派给 Codex 或 Gemini
+当前 Agent（ZCode）直接负责全流程：需求分析、架构设计、任务拆分、编码实现、测试验证、代码审查与 Git 提交管理。
 
-**Codex——后端开发**：
-- 服务端代码、API、数据库、Migration
-- 单元测试、集成测试
-- 通过 `/ask codex "..."` 调用
+- `.swift` 及其他代码文件**可以直接 Edit/Write**，无需委派
+- 背景：多 Agent 委派工具链（`ask` CLI / CCB）在本机缺失，原"设计者绝不写代码"的强制分工会导致编码完全停滞，已于 2026-11-21 经用户确认废除
 
-**Gemini——前端开发**：
-- 前端组件、页面、样式、交互逻辑
-- 代码审查、安全审计
-- 通过 `/ask gemini "..."` 调用
+### 可选多 Agent 协作（仅工具链可用时）
 
-### 降级机制
-
-当某个 AI 提供者不可用时，按以下规则降级：
-
-Codex 不可用 → Gemini 接管后端任务
-Gemini 不可用 → Codex 接管前端任务
-两者都不可用 → 暂停编码，等待恢复（Codex 不代写代码）
-
-降级时在任务描述中注明"降级接管"，便于后续追溯。
-
-### 协作方式
-
-**使用 Superpowers skills 进行**：
-- 规划：superpowers:writing-plans
-- 执行：superpowers:executing-plans
-- 审查：superpowers:requesting-code-review
-- 调试：superpowers:systematic-debugging
-- 完成：superpowers:finishing-a-development-branch
-
-**调用 AI 提供者执行代码任务**：
-# 指派 Codex 实现后端
-/ask codex "实现 XXX 后端功能，涉及文件：..."
-
-# 指派 Gemini 实现前端
-/ask gemini "实现 XXX 前端功能，涉及文件：..."
-
-# 查看执行结果
-/pend codex
-/pend gemini
-
-### 委派执行修复（避免 Invalid tool parameters）
-
-在本仓库中，委派命令统一走本地脚本，禁止使用其它委派工具形式（如 TaskCreate/Subagent）：
+**委派前必须先验证**：`which ask` 找到 CLI 才允许委派；找不到则直接自己实现，不等待、不暂停编码。
 
 ```bash
-Bash(CCB_CALLER=Codex /Users/lgh/Documents/Running/scripts/ccb_delegate.sh <provider> "<message>")
-```
-
-多行任务（推荐）：
-
-```bash
-Bash(CCB_CALLER=Codex /Users/lgh/Documents/Running/scripts/ccb_delegate.sh <provider> <<'EOF'
+CCB_CALLER=Zcode /Users/lgh/Documents/Running/scripts/ccb_delegate.sh <provider> <<'EOF'
 <message>
 EOF
-)
 ```
 
-说明：
-- provider 仅允许：`codex|gemini|opencode|droid|Codex`
-- 常见拼写 `claode` 会自动纠正为 `Codex`
-- 任何 `.swift` 编码任务都必须先委派，不允许 Codex 直接 Edit/Write
+- provider 仅允许：`codex|gemini|opencode|droid|claude`
+- 委派是**加速手段而非质量门槛**：适合大型、可并行的独立任务
+- 任何委派产出的代码仍由当前 Agent 审查后合并，对外部产出不免责
+
+### 质量把关（替代外部评审）
+
+- 改动前明确方案；改动后逐文件复查 `git diff`
+- 编译验证必须通过（xcodebuild，模拟器 SDK）
+- 相关单元/UI 测试保持全绿
+- 涉及 UI 行为的修复，默认在模拟器验证，勿用真机
 
 ---
 
@@ -85,20 +43,22 @@ EOF
 ## Git 规范
 
 - 功能开发在 feature/<task-name> 分支
-- 提交前必须通过代码审查
+- 提交前必须通过代码审查（工具链可用时外部评审，否则当前 Agent 自审）
 - 提交信息：<类型>: <描述>（中文）
 - 类型：feat / fix / docs / refactor / chore
 - **禁止**：force push、修改已 push 历史
 
 <!-- CCB_CONFIG_START -->
 ## AI Collaboration
+> 2026-11-21 起工具链缺失（`ask` not found）。以下命令仅在 `which ask` 恢复后可用；不可用时由当前 Agent 直接实现。
+
 Use `/ask <provider>` to consult other AI assistants (codex/gemini/opencode/droid).
 Use `/cping <provider>` to check connectivity.
 Use `/pend <provider>` to view latest replies.
 
-Providers: `codex`, `gemini`, `opencode`, `droid`, `Codex`
+Providers: `codex`, `gemini`, `opencode`, `droid`, `claude`
 
-## Async Guardrail (MANDATORY)
+## Async Guardrail (MANDATORY when ask is used)
 
 When you run `ask` (via `/ask` skill OR direct `Bash(ask ...)`) and the output contains `[CCB_ASYNC_SUBMITTED`:
 1. Reply with exactly one line: `<Provider> processing...` (use actual provider name, e.g. `Codex processing...`)
@@ -106,48 +66,38 @@ When you run `ask` (via `/ask` skill OR direct `Bash(ask ...)`) and the output c
 3. Do NOT poll, sleep, call `pend`, check logs, or add follow-up text
 4. Wait for the user or completion hook to deliver results in a later turn
 
-This rule applies unconditionally. Violating it causes duplicate requests and wasted resources.
+This rule applies only when `ask` actually ran and submitted. Violating it causes duplicate requests and wasted resources.
 
 <!-- CCB_ROLES_START -->
-## Role Assignment
+## Role Assignment (advisory, optional)
 
-Abstract roles map to concrete AI providers. Skills reference roles, not providers directly.
+Roles below are **optional acceleration targets**, used only when the ask toolchain is available
+(verify with `which ask` first). The current Agent fulfills every role by default, including
+direct Edit/Write on `.swift` files — the former "designer must not code" mandate is revoked.
 
 | Role | Provider | Description |
 |------|----------|-------------|
-| `designer` | `Codex` | Primary planner and architect — owns plans and designs |
-| `inspiration` | `gemini` | Creative brainstorming — provides ideas as reference only (unreliable, never blindly follow) |
-| `reviewer` | `codex` | Scored quality gate — evaluates plans/code using Rubrics |
-| `executor-backend` | `codex` | Backend code implementation — Swift models, managers, utilities, audio |
-| `executor-frontend` | `gemini` | Frontend code implementation — SwiftUI views, UI components, styles |
-
-**CRITICAL**: Codex is the `designer` only. Codex MUST NOT use Edit/Write tools on `.swift` files.
-All `.swift` code changes MUST be delegated via `/ask codex` or `/ask gemini`.
-
-To change a role assignment, edit the Provider column above.
-When a skill references a role (e.g. `reviewer`), resolve it to the provider listed here (e.g. `/ask codex`).
+| `inspiration` | `gemini` | Creative brainstorming — reference only (unreliable, never blindly follow) |
+| `executor-backend` | `codex` | Optional parallel implementer — Swift models, managers, utilities, audio |
+| `executor-frontend` | `gemini` | Optional parallel implementer — SwiftUI views, UI components, styles |
 <!-- CCB_ROLES_END -->
 
 <!-- CODEX_REVIEW_START -->
-## Peer Review Framework
+## Peer Review (optional)
 
-The `designer` MUST send to `reviewer` (via `/ask`) at two checkpoints:
-1. **Plan Review** — after finalizing a plan, BEFORE writing code. Tag: `[PLAN REVIEW REQUEST]`.
-2. **Code Review** — after completing code changes, BEFORE reporting done. Tag: `[CODE REVIEW REQUEST]`.
+Default: current Agent self-reviews (diff pass + build + tests) before reporting done.
 
-Include the full plan or `git diff` between `--- PLAN START/END ---` or `--- CHANGES START/END ---` delimiters.
-The `reviewer` scores using Rubrics defined in `AGENTS.md` and returns JSON.
-
-**Pass criteria**: overall >= 7.0 AND no single dimension <= 3.
-**On fail**: fix issues from response, re-submit (max 3 rounds). After 3 failures, present results to user.
-**On pass**: display final scores as a summary table.
+When the ask toolchain is available, an external scored review may additionally be requested
+via `/ask codex` with `[CODE REVIEW REQUEST]` and the `git diff` between
+`--- CHANGES START/END ---` delimiters. Pass criteria: overall >= 7.0 AND no dimension <= 3.
 <!-- CODEX_REVIEW_END -->
 
 <!-- GEMINI_INSPIRATION_START -->
-## Inspiration Consultation
+## Inspiration Consultation (optional)
 
-For creative tasks (UI/UX design, copywriting, naming, brainstorming), the `designer` SHOULD consult `inspiration` (via `/ask`) for reference ideas.
-The `inspiration` provider is often unreliable — never blindly follow. Exercise independent judgment and present suggestions to the user for decision.
+For creative tasks, consulting `inspiration` (via `/ask gemini`) is optional and only when the
+toolchain is available. Its output is often unreliable — never blindly follow; exercise
+independent judgment and present suggestions to the user for decision.
 <!-- GEMINI_INSPIRATION_END -->
 
 <!-- CCB_CONFIG_END -->
