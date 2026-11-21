@@ -13,6 +13,10 @@ struct RunningApp: App {
             StorageManager.shared.resetForUITests()
         }
         StorageManager.shared.seedMiniHurdleProfilesForUITestsIfNeeded()
+        // Touch the Live Activity manager at launch so its orphan sweep runs
+        // immediately — a card left behind by a killed process must not wait
+        // for the user to open a training screen to be cleaned up.
+        _ = TrainingLiveActivityManager.shared
     }
 
     var body: some Scene {

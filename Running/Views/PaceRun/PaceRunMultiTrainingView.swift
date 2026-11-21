@@ -68,11 +68,15 @@ struct PaceRunMultiTrainingView: View {
             switch phase {
             case .active:
                 resumeTimingIfNeeded()
-            case .background, .inactive:
-                // Leaving the foreground ends the island immediately: a card
-                // must not keep showing a session that is no longer running.
-                TrainingLiveActivityManager.shared.endAllImmediately()
+                reviveLiveActivityIfNeeded()
+            case .background:
+                // The session keeps running in the background (audio
+                // keep-alive), so the card stays up and ticks by itself.
                 suspendTiming()
+            case .inactive:
+                // Transient overlay (notification/control centre, app
+                // switcher): the card must survive these untouched.
+                break
             @unknown default:
                 break
             }
@@ -335,6 +339,15 @@ struct PaceRunMultiTrainingView: View {
             }
         }
         lastTickDate = now
+    }
+
+    /// Back in the foreground: the card should still be alive — it persists
+    /// while the session runs in the background — but if the system discarded
+    /// it under pressure, rebuild it instead of leaving the session cardless.
+    private func reviveLiveActivityIfNeeded() {
+        guard hasStartedTraining, !isCountdown, !allCompleted,
+              let state = liveActivityState() else { return }
+        TrainingLiveActivityManager.shared.begin(trainingID: training.id, state: state)
     }
 
     private func updateAllGroups(elapsed: TimeInterval) {

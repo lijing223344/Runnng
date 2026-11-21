@@ -10,10 +10,16 @@ import os.log
 /// strings plus an absolute block end date, so the widget can tick by itself
 /// without waking the app every second.
 ///
-/// Cleanup contract: an activity must never outlive the session. It is ended
-/// on explicit stop/complete/disappear, when the app leaves the foreground,
-/// and on next launch as a sweep over any orphaned activity left behind by a
-/// previously killed process.
+/// Lifecycle contract: the activity follows the session, not the foreground
+/// state. A running session keeps the process alive in the background through
+/// its audio keep-alive, so the card deliberately stays on the Lock Screen and
+/// Dynamic Island while the app is backgrounded — phase pushes keep coming
+/// from the still-running process and the widget self-ticks between them. An
+/// activity must never outlive the session, though: it is ended on explicit
+/// stop/complete/disappear, best-effort on termination, and on next launch as
+/// a sweep over anything a killed process left behind. If the process dies
+/// anyway, the staleDate lets the system mark the card outdated instead of
+/// presenting a frozen clock as if it were live.
 @MainActor
 final class TrainingLiveActivityManager {
 
@@ -23,7 +29,6 @@ final class TrainingLiveActivityManager {
     private var activityTrainingID: String?
     private var lastSignature = ""
     private var lastPushAt = Date.distantPast
-    private var backgroundObserver: NSObjectProtocol?
     private var willTerminateObserver: NSObjectProtocol?
     private let log = Logger(subsystem: "SCTN.Running", category: "LiveActivity")
 
@@ -33,7 +38,6 @@ final class TrainingLiveActivityManager {
     }
 
     deinit {
-        if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) }
         if let willTerminateObserver { NotificationCenter.default.removeObserver(willTerminateObserver) }
     }
 
@@ -55,9 +59,18 @@ final class TrainingLiveActivityManager {
             return
         }
         // A different session is starting: close any stale card first so two
-        // activities for different sessions can never coexist.
+        // activities for different sessions can never coexist. The registry
+        // pass also retires untracked leftovers the in-memory reference no
+        // longer knows about — a 90 s grace card from the previous session,
+        // or an orphan left by a crashed process.
         if activity != nil {
             endAllImmediately()
+        }
+        Task { [trainingID] in
+            for other in Activity<TrainingActivityAttributes>.activities
+            where other.attributes.trainingID != trainingID {
+                await other.end(nil, dismissalPolicy: .immediate)
+            }
         }
 
         do {
@@ -109,8 +122,9 @@ final class TrainingLiveActivityManager {
     }
 
     /// Ends every tracked activity immediately, with no grace card. Used when
-    /// the app leaves the foreground or is about to be terminated, so the
-    /// island never keeps showing a session that is no longer running.
+    /// a different session takes over, or as a best-effort when the app is
+    /// about to be terminated, so the island never keeps showing a session
+    /// that is no longer running.
     func endAllImmediately() {
         guard let activity else { return }
         let current = activity
@@ -162,14 +176,6 @@ final class TrainingLiveActivityManager {
 
     private func registerLifecycleObservers() {
         let center = NotificationCenter.default
-        backgroundObserver = center.addObserver(
-            forName: UIApplication.didEnterBackgroundNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] note in
-            guard let self else { return }
-            MainActor.assumeIsolated { self.endAllImmediately() }
-        }
         willTerminateObserver = center.addObserver(
             forName: UIApplication.willTerminateNotification,
             object: nil,
