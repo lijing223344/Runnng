@@ -261,7 +261,7 @@
 "mini_hurdle_step_measure_title" = "Measure";
 "mini_hurdle_step_plan_title" = "Plan";
 "mini_hurdle_step_measure_subtitle" = "Profile sets the ratio band, GT sets absolute distance; edits update the marks";
-"mini_hurdle_step_athlete_subtitle_temporary" = "Load a profile to fill sex and GT; Temporary takes your own GT";
+"mini_hurdle_step_athlete_subtitle_temporary" = "Use the marks now or save this setup under an athlete’s name.";
 "mini_hurdle_step_plan_subtitle" = "Lay out at the Mann default first, then fine-tune inside the Clark band";
 "mini_hurdle_step_status_needed" = "Needs value";
 "mini_hurdle_save_hint" = "Save this setup as a profile for the next session";
@@ -317,6 +317,7 @@
 "mini_hurdle_measurement_illustration_a11y" = "Measurement diagram. Athlete stands naturally, the superior greater-trochanter point is marked on the lateral hip, and the measurement drops vertically to the floor. Do not use the iliac crest and do not measure diagonally along the leg.";
 "mini_hurdle_measurement_unit" = "Input Unit";
 "mini_hurdle_measurement_unit_cm" = "cm";
+"mini_hurdle_clear_gt" = "Clear GT measurement";
 "mini_hurdle_measurement_unit_m" = "m";
 "mini_hurdle_measurement_gt_title" = "GT Leg Length";
 "mini_hurdle_measurement_gt_hint" = "Enter the measured GT leg length. Values entered in centimeters are converted automatically to meters for calculation.";
@@ -514,10 +515,10 @@
 
 "mini_hurdle_source_temporary" = "Temporary";
 "mini_hurdle_source_saved" = "Saved athlete";
-"mini_hurdle_source_saved_subtitle" = "Sex, GT and ratio are loaded; marks are ready";
-"mini_hurdle_no_athletes_hint" = "No profiles yet. Use Temporary and enter GT; save one at the end for a record";
+"mini_hurdle_source_saved_subtitle" = "Changes here are saved to the selected athlete automatically.";
+"mini_hurdle_no_athletes_hint" = "Temporary entries last until you leave this page.";
 "mini_hurdle_archive_title" = "Save profile";
-"mini_hurdle_saved_available_hint" = "Tap Saved athlete to pick one; sex and GT fill in automatically";
+"mini_hurdle_saved_available_hint" = "Your temporary entries are kept while you switch profiles on this page.";
 "live_target_format" = "Target %@";
 "live_rest_format" = "Rest %@";
 "live_total_format" = "%d m total";

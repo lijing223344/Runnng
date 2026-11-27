@@ -83,7 +83,7 @@ class LocalizationManager: ObservableObject {
 
     func synchronizeWithSettingsLanguage(_ language: String) {
         let resolvedLanguage = LocalizationPreferenceResolver.resolveInitialLanguage(
-            arguments: [],
+            arguments: ProcessInfo.processInfo.arguments,
             storedAppLanguage: nil,
             storedSettingsLanguage: language
         )

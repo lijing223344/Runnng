@@ -400,6 +400,14 @@ class SoundManager: ObservableObject {
 
     // MARK: - Public API
 
+    func playRestCountdownCues(from previous: Double, to current: Double, lead: Int) {
+        let upper = min(Int(floor(previous)), max(1, lead))
+        let lower = max(0, Int(floor(current)))
+        for second in stride(from: upper, to: lower, by: -1) {
+            playCountdown(second)
+        }
+    }
+
     /// Play countdown tick.
     /// - whistleOnLast=false: all ticks use normal beep.
     /// - whistleOnLast=true: count==1 uses whistle as GO signal.

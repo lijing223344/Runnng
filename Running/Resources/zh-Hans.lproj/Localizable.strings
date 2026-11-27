@@ -261,7 +261,7 @@
 "mini_hurdle_step_measure_title" = "测量";
 "mini_hurdle_step_plan_title" = "摆点方案";
 "mini_hurdle_step_measure_subtitle" = "性别定比例区间，GT 定绝对距离；改动即时更新摆点";
-"mini_hurdle_step_athlete_subtitle_temporary" = "选档案可带入性别与 GT；临时测算则直接输入 GT";
+"mini_hurdle_step_athlete_subtitle_temporary" = "输入后可直接查看摆点，也可保存为运动员。";
 "mini_hurdle_step_plan_subtitle" = "先按 Mann 默认摆，再按现场节奏用 Clark 区间微调";
 "mini_hurdle_step_status_needed" = "待输入";
 "mini_hurdle_save_hint" = "把当前数值存成档案，下次进入直接调用";
@@ -318,6 +318,7 @@
 "mini_hurdle_measurement_illustration_a11y" = "测量示意图：运动员自然站立，先找到髋外侧大转子上缘，再从该点垂直到地面。不要把髂嵴当作大转子，也不要沿腿斜量。";
 "mini_hurdle_measurement_unit" = "输入单位";
 "mini_hurdle_measurement_unit_cm" = "厘米";
+"mini_hurdle_clear_gt" = "清空 GT 下肢长";
 "mini_hurdle_measurement_unit_m" = "米";
 "mini_hurdle_measurement_gt_title" = "GT 下肢长（大转子高度）";
 "mini_hurdle_measurement_gt_hint" = "请输入 GT 下肢长实测值；若以厘米录入，系统会自动换算为米参与计算。";
@@ -515,10 +516,10 @@
 
 "mini_hurdle_source_temporary" = "临时测算";
 "mini_hurdle_source_saved" = "已有档案";
-"mini_hurdle_source_saved_subtitle" = "已带入性别、GT 与比例，摆点直接可看";
-"mini_hurdle_no_athletes_hint" = "还没有档案。按「临时测算」直接输入 GT；需要留档时最后保存";
+"mini_hurdle_source_saved_subtitle" = "在本页修改的参数会自动保存到当前运动员。";
+"mini_hurdle_no_athletes_hint" = "临时输入仅保留到离开本页。";
 "mini_hurdle_archive_title" = "存档";
-"mini_hurdle_saved_available_hint" = "点「已有档案」选一名运动员，性别与 GT 会自动带入";
+"mini_hurdle_saved_available_hint" = "在本页切换档案后，仍可回到刚才的临时输入。";
 "live_target_format" = "目标 %@";
 "live_rest_format" = "休息 %@";
 "live_total_format" = "全程 %d m";

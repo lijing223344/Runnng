@@ -2,6 +2,15 @@ import XCTest
 @testable import Running
 
 final class MiniHurdleSpacingTests: XCTestCase {
+    func testGTUnitSwitchPreservesFractionalMeasurements() throws {
+        let cm = MiniHurdleMeasurementUnit.centimeters
+        let m = MiniHurdleMeasurementUnit.meters
+        let measured = try XCTUnwrap(cm.meters(from: "86,75"))
+        XCTAssertEqual(m.inputText(meters: measured), "0.8675")
+        XCTAssertEqual(cm.inputText(meters: try XCTUnwrap(m.meters(from: "0.8675"))), "86.75")
+        XCTAssertNil(m.meters(from: "inf"))
+        XCTAssertNil(cm.meters(from: ""))
+    }
     func testRecommendedFemaleConfigurationMatchesWorkbookFormulaChain() throws {
         let result = try XCTUnwrap(
             MiniHurdleSpacingCalculator.calculate(

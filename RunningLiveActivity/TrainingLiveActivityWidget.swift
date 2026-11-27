@@ -96,28 +96,34 @@ struct TrainingLiveActivityWidget: Widget {
                     Capsule()
                         .fill(LA.accent(context.state.accentHex))
                         .frame(width: 3, height: 15)
-                    Text(compactPercent(context.state))
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .monospacedDigit()
-                        .foregroundStyle(context.state.isPaused ? LA.secondary : LA.primary)
-                        .lineLimit(1)
-                        .frame(width: 34, alignment: .leading)
+                    if context.state.isPaused {
+                        Image(systemName: "pause.fill")
+                            .accessibilityLabel(context.state.statusLabel)
+                    } else if context.state.stepLabel.isEmpty {
+                        Image(systemName: "timer")
+                            .accessibilityLabel(context.state.statusLabel)
+                    } else {
+                        Text(context.state.compactLabel.isEmpty ? context.state.stepLabel : context.state.compactLabel)
+                    }
                 }
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(context.state.isPaused ? LA.secondary : LA.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
             } compactTrailing: {
-                // Short fixed-width step so the island's width does not change
-                // when a step rolls over mid-run.
-                Text(context.state.compactLabel.isEmpty
-                     ? context.state.stepLabel
-                     : context.state.compactLabel)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .monospacedDigit()
-                    .foregroundStyle(LA.secondary)
-                    .lineLimit(1)
-                    .frame(width: 44, alignment: .trailing)
+                LiveCountdown(state: context.state)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(context.state.isPaused ? LA.secondary : LA.primary)
+                    .multilineTextAlignment(.trailing)
+                    .minimumScaleFactor(0.72)
+                    .frame(width: 50, alignment: .trailing)
             } minimal: {
-                Capsule()
-                    .fill(LA.accent(context.state.accentHex))
-                    .frame(width: 16, height: 4)
+                LiveCountdown(state: context.state)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(LA.accent(context.state.accentHex))
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.65)
             }
             .keylineTint(LA.accent(context.state.accentHex))
         }
@@ -196,8 +202,8 @@ private struct LiveCountdown: View {
 
     var body: some View {
         Group {
-            if let end = state.endDate, !state.isPaused, !state.isComplete, end > Date() {
-                Text(timerInterval: Date()...end, countsDown: true)
+            if let end = state.endDate, !state.isPaused, !state.isComplete {
+                Text(timerInterval: min(Date.now, end)...end, countsDown: true)
             } else {
                 Text(state.remainingText)
             }
@@ -205,11 +211,6 @@ private struct LiveCountdown: View {
         .monospacedDigit()
         .lineLimit(1)
     }
-}
-
-private func compactPercent(_ state: TrainingActivityAttributes.ContentState) -> String {
-    if state.isComplete { return "100%" }
-    return "\(Int(state.progress * 100))%"
 }
 
 private struct ProgressRail: View {

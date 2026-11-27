@@ -10,10 +10,20 @@ struct GroupTrainingState {
     var isPaused: Bool = false
     var isCompleted: Bool = false
     var isSetRest: Bool = false
+
+    func completedSteps(in group: IntervalGroup) -> Double {
+        let steps = group.effectiveRepetitions
+        if isCompleted { return Double(steps * group.effectiveSetCount) }
+        let previousSteps = (currentSet - 1) * steps + currentRepetition - 1
+        let duration = max(0.001, group.runTimeForRep(currentRepetition - 1))
+        let fraction = phase == .resting ? 1 : min(1, max(0, 1 - remainingTime / duration))
+        return Double(previousSteps) + fraction
+    }
 }
 
 struct IntervalTrainingView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var soundManager = SoundManager.shared
@@ -21,16 +31,13 @@ struct IntervalTrainingView: View {
 
     @State private var groupStates: [GroupTrainingState] = []
     @State private var isGlobalPaused: Bool = false
-    @State private var countdownSeconds: Int = 3
-    @State private var isCountdown: Bool = true
+    @State private var clock = TrainingSessionClock()
+    private var countdownSeconds: Int { clock.countdownSeconds }
+    private var isCountdown: Bool { clock.countdownRemaining > 0 }
     @State private var timer: Timer?
-    @State private var lastTickDate: Date?
     @State private var showConfirmStop = false
     @State private var didSaveRecord = false
-    @State private var hasStartedTraining = false
     @State private var sessionStartedAt: Date?
-    private let maxTickElapsed: TimeInterval = 0.25
-    private let maxStateTransitionsPerTick = 512
 
     private var allCompleted: Bool {
         !groupStates.isEmpty && groupStates.allSatisfy({ $0.isCompleted }) && !isCountdown
@@ -39,27 +46,20 @@ struct IntervalTrainingView: View {
     /// iOS asks the user to allow Live Activities on the app's first request;
     /// if it was declined, offer a way back instead of failing silently.
     private var showsLiveActivityHint: Bool {
-        hasStartedTraining && !TrainingLiveActivityManager.shared.isEnabled
+        sessionStartedAt != nil && !TrainingLiveActivityManager.shared.isEnabled
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
+        TrainingSessionScreen(
+            accent: DS.Colors.interval, isPaused: isGlobalPaused, isComplete: allCompleted,
+            showsActivityHint: showsLiveActivityHint,
+            onPause: toggleGlobalPause, onRestart: restartTraining,
+            onStop: { showConfirmStop = true }
+        ) {
             if isCountdown {
                 countdownOverlay
             } else {
                 trainingContent
-            }
-
-            VStack {
-                Spacer()
-                if showsLiveActivityHint {
-                    LiveActivityUnavailableHint()
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
-                }
-                bottomControls
             }
         }
         .onAppear {
@@ -75,20 +75,11 @@ struct IntervalTrainingView: View {
             TrainingLiveActivityManager.shared.end()
         }
         .onChange(of: scenePhase) { _, phase in
-            switch phase {
-            case .active:
-                resumeTimingIfNeeded()
-                reviveLiveActivityIfNeeded()
-            case .background:
-                // The session keeps running in the background (audio
-                // keep-alive), so the card stays up and ticks by itself.
-                suspendTiming()
-            case .inactive:
-                // Transient overlay (notification/control centre, app
-                // switcher): the card must survive these untouched.
-                break
-            @unknown default:
-                break
+            if phase == .active, sessionStartedAt != nil, !allCompleted {
+                tick()
+                if !allCompleted, let state = liveActivityState() {
+                    TrainingLiveActivityManager.shared.begin(trainingID: training.id, state: state)
+                }
             }
         }
         .alert("confirm_stop".localized, isPresented: $showConfirmStop) {
@@ -108,7 +99,7 @@ struct IntervalTrainingView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .padding(.horizontal, 32)
-            Text("countdown_start".localized)
+            Text((isGlobalPaused ? "paused" : "countdown_start").localized)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .tracking(2)
@@ -117,6 +108,7 @@ struct IntervalTrainingView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.55))
             Text("\(countdownSeconds)")
+                .accessibilityIdentifier("training_preparation_seconds")
                 .font(DS.Typo.countdownHero)
                 .foregroundStyle(DS.Colors.interval)
                 .monospacedDigit()
@@ -129,25 +121,25 @@ struct IntervalTrainingView: View {
     // MARK: - Training Content
     private var trainingContent: some View {
         GeometryReader { geo in
-            if DSLayout.isWide(geo.size.width) {
-                DSTrainingSplit(width: geo.size.width, fillHeight: max(0, geo.size.height - 150)) {
+            if verticalSizeClass != .compact, DSLayout.isWide(geo.size.width), training.groups.count > 1 {
+                DSTrainingSplit(width: geo.size.width, fillHeight: geo.size.height) {
                     VStack(spacing: 12) { groupCards() }
                         .padding(.horizontal, 20)
                         .padding(.top, 20)
-                        .padding(.bottom, 120)
+                        .padding(.bottom, 12)
                 } trailing: {
                     contextColumn
                         .frame(maxWidth: 640, alignment: .leading)
                         .padding(.horizontal, 24)
                         .padding(.top, 20)
-                        .padding(.bottom, 120)
+                        .padding(.bottom, 12)
                 }
             } else {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 12) { groupCards() }
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
-                        .padding(.bottom, 120)
+                        .padding(.bottom, 12)
                 }
             }
         }
@@ -161,6 +153,7 @@ struct IntervalTrainingView: View {
                 GroupTrainingCard(
                     group: group,
                     state: groupStates[index],
+                    isSessionPaused: isGlobalPaused,
                     onPauseToggle: { togglePauseGroup(index) }
                 )
             }
@@ -212,179 +205,74 @@ struct IntervalTrainingView: View {
         )
     }
 
-    // MARK: - Bottom Controls
-    private var bottomControls: some View {
-        let primaryHighlighted = allCompleted || isGlobalPaused
-        return HStack(spacing: 12) {
-            Button(action: allCompleted ? restartTraining : toggleGlobalPause) {
-                HStack(spacing: 8) {
-                    Image(systemName: allCompleted ? "arrow.clockwise" : (isGlobalPaused ? "play.fill" : "pause.fill"))
-                        .font(.system(size: 16, weight: .semibold))
-                    Text(allCompleted ? "restart_training".localized : (isGlobalPaused ? "resume".localized : "pause".localized))
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundStyle(primaryHighlighted ? Color.white : DS.Colors.textPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .trainingControlSurface(highlighted: primaryHighlighted, accent: DS.Colors.interval)
-            }
-
-            Button(action: { showConfirmStop = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("stop".localized)
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundStyle(DS.Colors.error)
-                .frame(width: 110)
-                .frame(height: 56)
-                .trainingStopSurface()
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 32)
-        .padding(.top, 12)
-        .background(
-            LinearGradient(
-                colors: [Color.black.opacity(0), Color.black],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.4)
-            )
-            .ignoresSafeArea()
-        )
-    }
-
     // MARK: - Training Logic
     private func initializeStates() {
         timer?.invalidate()
-        isCountdown = true
         isGlobalPaused = false
         showConfirmStop = false
         groupStates = training.groups.map { group in
             var state = GroupTrainingState()
+            state.phase = .running
             state.remainingTime = group.runTimeForRep(0)
             return state
         }
-        countdownSeconds = max(1, training.countdownSeconds)
         didSaveRecord = false
-        hasStartedTraining = false
         sessionStartedAt = nil
-        lastTickDate = nil
     }
 
     private func startCountdown() {
-        isCountdown = true
-        countdownSeconds = max(1, training.countdownSeconds)
-        sessionStartedAt = Date()
-        soundManager.playCountdown(countdownSeconds)
-        let countdownTimer = Timer(timeInterval: 1, repeats: true) { _ in
-            if self.countdownSeconds > 1 {
-                self.countdownSeconds -= 1
-                self.soundManager.playCountdown(self.countdownSeconds)
-            } else {
-                self.timer?.invalidate()
-                self.isCountdown = false
-                self.soundManager.playSound(self.training.groups.first?.startSound ?? .whistleStandard)
-                self.startAllGroups()
-            }
-        }
-        RunLoop.main.add(countdownTimer, forMode: .common)
-        timer = countdownTimer
-    }
-
-    private func startAllGroups() {
-        hasStartedTraining = true
-        for index in training.groups.indices {
-            groupStates[index].phase = .running
-            groupStates[index].currentRepetition = 1
-            groupStates[index].currentSet = 1
-            groupStates[index].remainingTime = training.groups[index].runTimeForRep(0)
-            groupStates[index].isCompleted = false
-            groupStates[index].isSetRest = false
-        }
-        startTimer()
+        let now = Date.now
+        clock = TrainingSessionClock(countdown: max(1, training.countdownSeconds), at: now)
+        sessionStartedAt = now
         if let state = liveActivityState() {
             TrainingLiveActivityManager.shared.begin(trainingID: training.id, state: state)
         }
-    }
-
-    private func startTimer() {
-        lastTickDate = Date()
-        let mainTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
-            let now = Date()
-            let rawElapsed = max(0, now.timeIntervalSince(lastTickDate ?? now))
-            lastTickDate = now
-            let elapsed = min(rawElapsed, self.maxTickElapsed)
-            self.updateAllGroups(elapsed: elapsed)
-        }
+        soundManager.playCountdown(countdownSeconds)
+        let mainTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in tick() }
         RunLoop.main.add(mainTimer, forMode: .common)
         timer = mainTimer
     }
 
-    private func suspendTiming() {
-        lastTickDate = nil
-    }
-
-    private func resumeTimingIfNeeded() {
-        guard !isCountdown, !isGlobalPaused, !allCompleted else {
-            lastTickDate = Date()
-            return
+    private func tick() {
+        switch clock.advance(to: .now, paused: isGlobalPaused) {
+        case .idle:
+            break
+        case .countdown(let seconds):
+            soundManager.playCountdown(seconds)
+        case .start(let elapsed):
+            if elapsed < 1 { soundManager.playSound(training.groups.first?.startSound ?? .whistleStandard) }
+            updateAllGroups(elapsed: elapsed)
+        case .training(let elapsed):
+            updateAllGroups(elapsed: elapsed)
         }
-        let now = Date()
-        if let last = lastTickDate {
-            let gap = max(0, now.timeIntervalSince(last))
-            if gap > 0 {
-                updateAllGroups(elapsed: gap)
-            }
-        }
-        lastTickDate = now
-    }
-
-    /// Back in the foreground: the card should still be alive — it persists
-    /// while the session runs in the background — but if the system discarded
-    /// it under pressure, rebuild it instead of leaving the session cardless.
-    private func reviveLiveActivityIfNeeded() {
-        guard hasStartedTraining, !isCountdown, !allCompleted,
-              let state = liveActivityState() else { return }
-        TrainingLiveActivityManager.shared.begin(trainingID: training.id, state: state)
     }
 
     private func updateAllGroups(elapsed: TimeInterval) {
         guard !isGlobalPaused else { return }
-        guard elapsed > 0 else { return }
+        // A delayed callback can cross several phases. Skip their expired audio cues.
+        let cues = elapsed < 1 ? soundManager : nil
         let epsilon = 0.000_001
         for index in training.groups.indices {
             guard !groupStates[index].isCompleted && !groupStates[index].isPaused else { continue }
             let group = training.groups[index]
             var remainingElapsed = elapsed
-            var transitions = 0
 
             // Carry over overshoot across run/rest boundaries to keep wall-clock timing accurate.
             while remainingElapsed > epsilon && !groupStates[index].isCompleted {
-                transitions += 1
-                if transitions > maxStateTransitionsPerTick {
-                    groupStates[index].isCompleted = true
-                    groupStates[index].phase = .completed
-                    groupStates[index].remainingTime = 0
-                    groupStates[index].isSetRest = false
-                    soundManager.playSound(group.endSound)
-                    break
-                }
                 let currentRemaining = max(0, groupStates[index].remainingTime)
                 if currentRemaining > remainingElapsed + epsilon {
                     let previous = currentRemaining
                     let next = currentRemaining - remainingElapsed
                     groupStates[index].remainingTime = next
                     if groupStates[index].phase == .resting {
-                        playRestCountdownCues(from: previous, to: next, lead: group.restCountdownLeadSeconds)
+                        cues?.playRestCountdownCues(from: previous, to: next, lead: group.restCountdownLeadSeconds)
                     }
                     remainingElapsed = 0
                 } else {
                     let previous = currentRemaining
                     groupStates[index].remainingTime = 0
                     if groupStates[index].phase == .resting {
-                        playRestCountdownCues(from: previous, to: 0, lead: group.restCountdownLeadSeconds)
+                        cues?.playRestCountdownCues(from: previous, to: 0, lead: group.restCountdownLeadSeconds)
                     }
                     remainingElapsed -= currentRemaining
 
@@ -399,14 +287,14 @@ struct IntervalTrainingView: View {
                                 groupStates[index].phase = .resting
                                 groupStates[index].remainingTime = restAfter
                                 groupStates[index].isSetRest = false
-                                soundManager.playSound(group.restSound)
+                                cues?.playSound(group.restSound)
                             } else {
                                 groupStates[index].currentRepetition += 1
                                 groupStates[index].phase = .running
                                 let nextRepIndex = max(0, groupStates[index].currentRepetition - 1)
                                 groupStates[index].remainingTime = max(0, group.runTimeForRep(nextRepIndex))
                                 groupStates[index].isSetRest = false
-                                soundManager.playSound(group.startSound)
+                                cues?.playSound(group.startSound)
                             }
                         } else {
                             // Set completed
@@ -416,19 +304,19 @@ struct IntervalTrainingView: View {
                                     groupStates[index].phase = .resting
                                     groupStates[index].remainingTime = setRest
                                     groupStates[index].isSetRest = true
-                                    soundManager.playSound(group.restSound)
+                                    cues?.playSound(group.restSound)
                                 } else {
                                     groupStates[index].currentSet += 1
                                     groupStates[index].currentRepetition = 1
                                     groupStates[index].phase = .running
                                     groupStates[index].remainingTime = max(0, group.runTimeForRep(0))
                                     groupStates[index].isSetRest = false
-                                    soundManager.playSound(group.startSound)
+                                    cues?.playSound(group.startSound)
                                 }
                             } else {
                                 groupStates[index].isCompleted = true
                                 groupStates[index].phase = .completed
-                                soundManager.playSound(group.endSound)
+                                cues?.playSound(group.endSound)
                             }
                         }
                     } else if groupStates[index].phase == .resting {
@@ -439,11 +327,11 @@ struct IntervalTrainingView: View {
                                 groupStates[index].phase = .running
                                 groupStates[index].remainingTime = max(0, group.runTimeForRep(0))
                                 groupStates[index].isSetRest = false
-                                soundManager.playSound(group.startSound)
+                                cues?.playSound(group.startSound)
                             } else {
                                 groupStates[index].isCompleted = true
                                 groupStates[index].phase = .completed
-                                soundManager.playSound(group.endSound)
+                                cues?.playSound(group.endSound)
                             }
                         } else {
                             if groupStates[index].currentRepetition < group.effectiveRepetitions {
@@ -451,11 +339,11 @@ struct IntervalTrainingView: View {
                                 groupStates[index].phase = .running
                                 let nextRepIndex = max(0, groupStates[index].currentRepetition - 1)
                                 groupStates[index].remainingTime = max(0, group.runTimeForRep(nextRepIndex))
-                                soundManager.playSound(group.startSound)
+                                cues?.playSound(group.startSound)
                             } else {
                                 groupStates[index].isCompleted = true
                                 groupStates[index].phase = .completed
-                                soundManager.playSound(group.endSound)
+                                cues?.playSound(group.endSound)
                             }
                         }
                     } else {
@@ -476,17 +364,6 @@ struct IntervalTrainingView: View {
         }
     }
 
-    private func playRestCountdownCues(from previous: Double, to current: Double, lead: Int) {
-        let upper = Int(floor(previous))
-        let lower = Int(floor(current))
-        guard lower < upper else { return }
-        for sec in stride(from: upper, to: lower, by: -1) {
-            if sec <= max(1, lead) && sec >= 1 {
-                soundManager.playCountdown(sec)
-            }
-        }
-    }
-
     // MARK: - Live Activity snapshot
 
     private static func mmss(_ value: Double) -> String {
@@ -496,10 +373,15 @@ struct IntervalTrainingView: View {
 
     private func liveActivityState(isComplete: Bool = false) -> TrainingActivityAttributes.ContentState? {
         guard !training.groups.isEmpty, !groupStates.isEmpty else { return nil }
-        let index = groupStates.firstIndex(where: { !$0.isCompleted }) ?? (groupStates.count - 1)
+        let index = groupStates.firstIndex(where: { !$0.isCompleted && !$0.isPaused })
+            ?? groupStates.firstIndex(where: { !$0.isCompleted }) ?? (groupStates.count - 1)
         guard index < training.groups.count else { return nil }
         let state = groupStates[index]
         let group = training.groups[index]
+        if isCountdown, !isComplete {
+            return clock.preparationActivity(kind: "interval_training".localized, title: training.name,
+                                             accentHex: group.colorHex, paused: isGlobalPaused)
+        }
         let repetitions = max(1, group.effectiveRepetitions)
         let rep = min(max(state.currentRepetition, 1), repetitions)
         let sets = group.effectiveSetCount
@@ -535,7 +417,7 @@ struct IntervalTrainingView: View {
         else if state.phase == .resting { status = "resting".localized }
         else { status = "running".localized }
 
-        let endDate: Date? = (paused || complete) ? nil : Date().addingTimeInterval(max(0, state.remainingTime))
+        let endDate: Date? = (paused || complete) ? nil : clock.sampleDate.addingTimeInterval(max(0, state.remainingTime))
 
         return .init(
             kindLabel: "interval_training".localized,
@@ -544,9 +426,9 @@ struct IntervalTrainingView: View {
             detailLabel: detail,
             stepLabel: step,
             compactLabel: "\(rep)/\(repetitions)",
-            remainingText: Self.mmss(state.remainingTime),
+            remainingText: Self.mmss(ceil(state.remainingTime)),
             endDate: endDate,
-            progress: overallProgress(activeIndex: index, state: state),
+            progress: overallProgress,
             accentHex: group.colorHex,
             isPaused: paused,
             isComplete: complete,
@@ -554,36 +436,25 @@ struct IntervalTrainingView: View {
         )
     }
 
-    private func overallProgress(activeIndex: Int, state: GroupTrainingState) -> Double {
-        let perGroup = training.groups.map { max(1, $0.effectiveRepetitions) * $0.effectiveSetCount }
-        let total = max(1, perGroup.reduce(0, +))
+    private var overallProgress: Double {
+        var total = 0
         var done = 0.0
-        for (i, groupState) in groupStates.enumerated() where i < perGroup.count {
-            if groupState.isCompleted {
-                done += Double(perGroup[i])
-            } else if i == activeIndex {
-                let group = training.groups[i]
-                let repetitions = max(1, group.effectiveRepetitions)
-                let rep = min(max(state.currentRepetition, 1), repetitions)
-                done += Double((min(max(state.currentSet, 1), group.effectiveSetCount) - 1) * repetitions + (rep - 1))
-                if state.phase == .running {
-                    let planned = max(0.001, group.runTimeForRep(rep - 1))
-                    done += max(0, min(1, 1 - state.remainingTime / planned))
-                }
-            }
+        for (group, state) in zip(training.groups, groupStates) {
+            total += group.effectiveRepetitions * group.effectiveSetCount
+            done += state.completedSteps(in: group)
         }
-        return min(1, max(0, done / Double(total)))
+        return done / Double(max(1, total))
     }
 
     private func togglePauseGroup(_ index: Int) {
         guard index >= 0, index < groupStates.count else { return }
+        tick()
         groupStates[index].isPaused.toggle()
-        lastTickDate = Date()
         if let state = liveActivityState() { TrainingLiveActivityManager.shared.update(state) }
     }
     private func toggleGlobalPause() {
+        tick()
         isGlobalPaused.toggle()
-        lastTickDate = Date()
         if let state = liveActivityState() { TrainingLiveActivityManager.shared.update(state) }
     }
     private func stopTraining() {
@@ -602,7 +473,6 @@ struct IntervalTrainingView: View {
         TrainingLiveActivityManager.shared.end()
         isGlobalPaused = false
         initializeStates()
-        isCountdown = true
         startCountdown()
     }
 
@@ -625,9 +495,11 @@ struct IntervalTrainingView: View {
 struct GroupTrainingCard: View {
     let group: IntervalGroup
     let state: GroupTrainingState
+    let isSessionPaused: Bool
     let onPauseToggle: () -> Void
     @State private var speedUnit: Int = 0  // 0=m/s, 1=min/km, 2=km/h
 
+    private var isPaused: Bool { isSessionPaused || state.isPaused }
     private var groupColor: Color { Color(hex: group.colorHex) ?? .orange }
     private var totalReps: Int { max(1, group.effectiveRepetitions) }
     private var repRunTimes: [Double] {
@@ -645,7 +517,7 @@ struct GroupTrainingCard: View {
     // Phase accent color
     private var phaseColor: Color {
         if state.isCompleted { return groupColor }
-        if state.isPaused { return DS.Colors.warning }
+        if isPaused { return DS.Colors.warning }
         if state.phase == .resting { return DS.Colors.rest }
         return groupColor
     }
@@ -897,7 +769,7 @@ struct GroupTrainingCard: View {
                 VStack(spacing: 2) {
                     Text(remainingTimeText)
                         .font(DS.Typo.timerLarge)
-                        .foregroundStyle(state.isPaused ? DS.Colors.warning : (state.phase == .resting ? DS.Colors.rest : .white))
+                        .foregroundStyle(isPaused ? DS.Colors.warning : (state.phase == .resting ? DS.Colors.rest : .white))
                         .monospacedDigit()
                         .minimumScaleFactor(0.72)
                         .lineLimit(1)
@@ -951,14 +823,16 @@ struct GroupTrainingCard: View {
                 .frame(height: 6)
 
                 Button(action: onPauseToggle) {
-                    Image(systemName: state.isPaused ? "play.fill" : "pause.fill")
+                    Image(systemName: isPaused ? "play.fill" : "pause.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(state.isPaused ? .black : .white)
+                        .foregroundStyle(isPaused ? .black : .white)
                         .frame(width: 36, height: 36)
-                        .background(state.isPaused ? groupColor : DS.Colors.divider)
+                        .background(isPaused ? groupColor : DS.Colors.divider)
                         .clipShape(Circle())
                 }
-                .accessibilityLabel(state.isPaused ? "resume".localized : "pause".localized)
+                .accessibilityLabel(isPaused ? "resume".localized : "pause".localized)
+                .disabled(isSessionPaused)
+                .opacity(isSessionPaused ? 0.45 : 1)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 18)
@@ -968,7 +842,7 @@ struct GroupTrainingCard: View {
     // MARK: Status pill
     private var statusPill: some View {
         HStack(spacing: 5) {
-            if state.isPaused {
+            if isPaused {
                 Image(systemName: "pause.fill").font(.system(size: 9, weight: .medium))
                 Text("paused".localized).font(.system(size: 12, weight: .medium))
             } else if state.phase == .running {
