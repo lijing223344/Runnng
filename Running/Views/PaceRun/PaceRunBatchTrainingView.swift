@@ -418,7 +418,7 @@ struct PaceRunBatchTrainingView: View {
 
         let detail: String
         if complete {
-            detail = String(format: "live_total_format".localized, group.totalDistance)
+            detail = String(format: "live_total_format".localized, group.plannedRunningDistance)
         } else if state.phase == .resting {
             let plannedRest = state.restKind == .set
                 ? group.effectiveSetRest
@@ -447,7 +447,7 @@ struct PaceRunBatchTrainingView: View {
             detailLabel: detail,
             stepLabel: step,
             compactLabel: "\(segment)/\(segmentCount)",
-            remainingText: Self.mmss(ceil(state.remainingTime)),
+            remainingText: TrainingSessionClock.remainingText(state.remainingTime),
             endDate: endDate,
             progress: overallProgress,
             accentHex: group.colorHex,

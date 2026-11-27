@@ -52,4 +52,35 @@ final class TrainingSessionClockTests: XCTestCase {
         intervalState.isSetRest = true
         XCTAssertEqual(intervalState.completedSteps(in: interval), 4)
     }
+
+    func testFrozenClockKeepsTheSystemCountdownFormatAcrossMinutesAndHours() {
+        for (seconds, expected) in [(0, "0:00"), (9, "0:09"), (60, "1:00"),
+                                    (599, "9:59"), (600, "10:00"), (3_600, "1:00:00")] {
+            let clock = TrainingSessionClock(countdown: seconds, at: start)
+            let paused = clock.preparationActivity(kind: "", title: "", accentHex: "", paused: true)
+            XCTAssertEqual(paused.remainingText, expected)
+        }
+    }
+
+    func testTickingSecondsDoNotRepublishAnUnchangedActivity() {
+        var clock = TrainingSessionClock(countdown: 62, at: start)
+        let first = clock.preparationActivity(kind: "Pace", title: "Track", accentHex: "123456", paused: false)
+        for tick in 1...610 {
+            _ = clock.advance(to: start.addingTimeInterval(Double(tick) / 10), paused: false)
+            let state = clock.preparationActivity(kind: "Pace", title: "Track", accentHex: "123456", paused: false)
+            XCTAssertFalse(state.needsUpdate(after: first))
+        }
+    }
+
+    func testPaceSegmentDistanceMatchesTheTrackWhenTheLastSegmentIsShorter() {
+        let group = PaceRunGroup(totalDistance: 450, segmentDistance: 100, setCount: 2)
+        let distances = (0..<group.segmentCount).map { Int(group.distanceForSegment($0)) }
+        XCTAssertEqual(distances, [100, 100, 100, 100, 50])
+        XCTAssertEqual(distances, group.segmentDistanceValues())
+        XCTAssertEqual(group.plannedRunningDistance, 900)
+
+        let custom = PaceRunGroup(setCount: 3, customSegments: [CustomSegment(distance: 80), CustomSegment(distance: 50)])
+        XCTAssertEqual(custom.plannedRunningDistance, 390)
+        XCTAssertEqual(custom.distanceForSegment(1), 50)
+    }
 }

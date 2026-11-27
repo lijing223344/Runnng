@@ -30,11 +30,20 @@ struct TrainingSessionClock {
         return countdownSeconds == previousSeconds ? .idle : .countdown(countdownSeconds)
     }
 
+    /// Matches the system timer's minute, second and optional hour fields when frozen.
+    static func remainingText(_ remaining: TimeInterval) -> String {
+        let seconds = max(0, remaining.rounded(.up))
+        let pattern: Duration.TimeFormatStyle.Pattern = seconds >= 3_600
+            ? .hourMinuteSecond(padHourToLength: 1)
+            : .minuteSecond(padMinuteToLength: 1)
+        return Duration.seconds(seconds).formatted(.time(pattern: pattern))
+    }
+
     func preparationActivity(kind: String, title: String, accentHex: String,
                              paused: Bool) -> TrainingActivityAttributes.ContentState {
         .init(kindLabel: kind, planTitle: title, phaseLabel: "countdown_start".localized,
               detailLabel: "", stepLabel: "", compactLabel: "",
-              remainingText: String(format: "%d:%02d", countdownSeconds / 60, countdownSeconds % 60),
+              remainingText: Self.remainingText(countdownRemaining),
               endDate: paused ? nil : sampleDate.addingTimeInterval(countdownRemaining),
               progress: 0, accentHex: accentHex, isPaused: paused, isComplete: false,
               statusLabel: (paused ? "paused" : "countdown").localized)

@@ -617,13 +617,16 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(gt.waitForExistence(timeout: 5))
         let clear = app.buttons["mini_hurdle_clear_gt"]
         XCTAssertTrue(clear.waitForExistence(timeout: 5))
-        clear.press(forDuration: 0.2)
-        XCTAssertTrue(waitUntil(timeout: 5) { !clear.isEnabled })
         gt.tap()
+        clear.tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { !clear.isEnabled })
         gt.typeText("86.75")
         XCTAssertEqual(gt.value as? String, "86.75")
+        XCTAssertTrue(app.staticTexts["Calculated as 0.8675 m."].exists)
         let done = app.buttons["mini_hurdle_gt_done"]
-        if done.isHittable { done.tap() }
+        XCTAssertTrue(done.isHittable)
+        done.tap()
+        XCTAssertFalse(done.exists)
         app.buttons["m"].tap()
         XCTAssertEqual(gt.value as? String, "0.8675")
 
@@ -662,12 +665,53 @@ final class RunningUITests: XCTestCase {
         XCTAssertTrue(app.buttons["mini_hurdle_athlete_manage_button"].exists)
     }
 
+    func testIncompleteHurdleMeasurementPreservesTheSavedAthlete() throws {
+        let app = launchApp(additionalArguments: ["-ui_testing_open_mini_hurdle", "-ui_testing_seed_mini_hurdle", "athleteProfiles"])
+        let gt = app.textFields["mini_hurdle_gt_input"]
+        XCTAssertTrue(gt.waitForExistence(timeout: 5))
+        XCTAssertEqual(gt.value as? String, "92")
+        let clear = app.buttons["mini_hurdle_clear_gt"]
+        gt.tap()
+        clear.tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { !clear.isEnabled })
+        gt.typeText("1")
+        XCTAssertEqual(gt.value as? String, "1")
+        let saveEnabled = app.buttons["mini_hurdle_athlete_save_button"].isEnabled
+
+        app.terminate()
+        app.launchArguments.removeAll { ["-ui_testing_reset", "-ui_testing_seed_mini_hurdle", "athleteProfiles"].contains($0) }
+        app.launch()
+        XCTAssertTrue(gt.waitForExistence(timeout: 5))
+        XCTAssertEqual(gt.value as? String, "92")
+        XCTAssertFalse(saveEnabled)
+    }
+
     func testLandscapePaceControlsAlignWithTimer() throws {
         try verifyLandscapeControls(forPace: true, orientation: .landscapeLeft)
     }
 
     func testLandscapeIntervalControlsAlignWithTimer() throws {
         try verifyLandscapeControls(forPace: false, orientation: .landscapeRight)
+    }
+
+    func testConvertingToCustomPaceSegmentsPreservesTheTotalDistance() throws {
+        let app = launchApp()
+        openPaceTrainingPlans(app)
+        app.buttons["pace_add_plan_toolbar_button"].tap()
+        let scroll = app.scrollViews.firstMatch
+        let total = app.buttons["pace_total_distance_1500"].firstMatch
+        makeElementHittable(total, in: scroll)
+        total.tap()
+        let split = app.buttons["pace_segment_distance_200"].firstMatch
+        makeElementHittable(split, in: scroll)
+        split.tap()
+        let custom = app.buttons["Custom Segments"].firstMatch
+        makeElementHittable(custom, in: scroll)
+        custom.tap()
+        app.buttons["pace_editor_save_bar_button"].tap()
+
+        XCTAssertTrue(app.staticTexts["1500m"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["1600m"].exists)
     }
 
     private func verifyLandscapeControls(forPace: Bool, orientation: UIDeviceOrientation) throws {

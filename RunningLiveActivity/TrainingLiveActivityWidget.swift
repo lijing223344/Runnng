@@ -5,6 +5,7 @@ import ActivityKit
 // MARK: - Palette (mirrors DS.Colors; the extension has no app module)
 
 private enum LA {
+    static let compactWidth: CGFloat = 50
     static let bg      = Color(red: 0.043, green: 0.047, blue: 0.059) // #0B0C0F
     static let card    = Color(red: 0.075, green: 0.078, blue: 0.094) // #131418
     static let primary = Color(red: 0.929, green: 0.929, blue: 0.937)
@@ -60,6 +61,7 @@ struct TrainingLiveActivityWidget: Widget {
                         LiveCountdown(state: context.state)
                             .font(.system(size: 17, weight: .medium, design: .monospaced))
                             .foregroundStyle(context.state.isPaused ? LA.secondary : LA.primary)
+                            .multilineTextAlignment(.trailing)
                             .frame(width: 64, alignment: .trailing)
                         Text(context.state.stepLabel)
                             .font(.system(size: 10, weight: .regular, design: .monospaced))
@@ -92,41 +94,61 @@ struct TrainingLiveActivityWidget: Widget {
                     }
                 }
             } compactLeading: {
-                HStack(spacing: 5) {
-                    Capsule()
-                        .fill(LA.accent(context.state.accentHex))
-                        .frame(width: 3, height: 15)
-                    if context.state.isPaused {
-                        Image(systemName: "pause.fill")
-                            .accessibilityLabel(context.state.statusLabel)
-                    } else if context.state.stepLabel.isEmpty {
-                        Image(systemName: "timer")
-                            .accessibilityLabel(context.state.statusLabel)
-                    } else {
-                        Text(context.state.compactLabel.isEmpty ? context.state.stepLabel : context.state.compactLabel)
-                    }
-                }
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(context.state.isPaused ? LA.secondary : LA.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                CompactStep(state: context.state)
             } compactTrailing: {
                 LiveCountdown(state: context.state)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(context.state.isPaused ? LA.secondary : LA.primary)
                     .multilineTextAlignment(.trailing)
                     .minimumScaleFactor(0.72)
-                    .frame(width: 50, alignment: .trailing)
+                    .frame(width: LA.compactWidth, alignment: .trailing)
             } minimal: {
                 LiveCountdown(state: context.state)
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(LA.accent(context.state.accentHex))
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.65)
+                    .frame(width: 30)
             }
             .keylineTint(LA.accent(context.state.accentHex))
         }
+    }
+}
+
+private struct CompactStep: View {
+    let state: TrainingActivityAttributes.ContentState
+
+    var body: some View {
+        let counter = state.compactLabel.isEmpty ? state.stepLabel : state.compactLabel
+        HStack(spacing: 5) {
+            Capsule()
+                .fill(LA.accent(state.accentHex))
+                .frame(width: 3, height: 15)
+            Group {
+                if state.isPaused || counter.isEmpty {
+                    Image(systemName: state.isPaused ? "pause.fill" : "timer")
+                        .accessibilityLabel(state.statusLabel)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        Text(verbatim: counter).fixedSize()
+                        Text(verbatim: counter)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .fixedSize()
+                        Text(verbatim: String(counter.prefix { $0 != "/" }))
+                    }
+                    .accessibilityLabel(Text(verbatim: state.stepLabel))
+                }
+            }
+            .transition(.identity)
+            .contentTransition(.identity)
+        }
+        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+        .monospacedDigit()
+        .foregroundStyle(state.isPaused ? LA.secondary : LA.primary)
+        .lineLimit(1)
+        // SpringBoard sizes this half of the island from its content's ideal width.
+        .frame(width: LA.compactWidth, alignment: .leading)
+        .animation(nil, value: state)
     }
 }
 
@@ -205,11 +227,14 @@ private struct LiveCountdown: View {
             if let end = state.endDate, !state.isPaused, !state.isComplete {
                 Text(timerInterval: min(Date.now, end)...end, countsDown: true)
             } else {
-                Text(state.remainingText)
+                Text(verbatim: state.remainingText)
             }
         }
         .monospacedDigit()
         .lineLimit(1)
+        .contentTransition(.identity)
+        .transition(.identity)
+        .animation(nil, value: state)
     }
 }
 

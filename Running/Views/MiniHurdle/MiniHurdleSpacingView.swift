@@ -111,7 +111,7 @@ struct MiniHurdleSpacingView: View {
     }
 
     private var canSaveCurrentSetupAsAthlete: Bool {
-        parsedGreaterTrochanterLength != nil && strategy != nil
+        result != nil
     }
 
     private func presentCreateEditor() {
@@ -257,11 +257,6 @@ struct MiniHurdleSpacingView: View {
             // so the title no longer floats over passing text.
             .toolbarBackground(DS.Colors.bg, for: .navigationBar)
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("done".localized) { isEditingGT = false }
-                        .accessibilityIdentifier("mini_hurdle_gt_done")
-                }
                 ToolbarItem(placement: .principal) {
                     Text("mini_hurdle_title".localized)
                         .font(.headline)
@@ -664,19 +659,24 @@ struct MiniHurdleSpacingView: View {
     }
 
     private var saveSetupRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let canSave = canSaveCurrentSetupAsAthlete
+        return VStack(alignment: .leading, spacing: 8) {
             compactStripButton(
                 icon: selectedAthlete == nil ? "square.and.arrow.down" : "plus.circle",
                 text: selectedAthlete == nil
                     ? "mini_hurdle_athlete_save_button".localized
                     : "mini_hurdle_athlete_save_as_new_button".localized,
-                isDisabled: !canSaveCurrentSetupAsAthlete,
+                isDisabled: !canSave,
                 accessibilityIdentifier: "mini_hurdle_athlete_save_button"
             ) {
                 presentCreateEditor()
             }
 
-            if selectedAthlete != nil, let lastAutoSaveDate {
+            if selectedAthlete != nil && !canSave {
+                Text("mini_hurdle_athlete_last_valid".localized)
+                    .font(.caption)
+                    .foregroundStyle(DS.Colors.warning)
+            } else if selectedAthlete != nil, let lastAutoSaveDate {
                 Label(
                     String(
                         format: "mini_hurdle_autosave_format".localized,
@@ -776,34 +776,46 @@ struct MiniHurdleSpacingView: View {
                     )
             )
 
-            if isGTInputInvalid {
-                Text("mini_hurdle_invalid_gt_hint".localized)
-                    .font(.caption)
-                    .foregroundStyle(DS.Colors.warning)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if isGTOutOfRange {
-                Text("mini_hurdle_gt_out_of_range_hint".localized)
-                    .font(.caption)
-                    .foregroundStyle(DS.Colors.warning)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if let parsedGreaterTrochanterLength {
-                Text(
-                    String(
-                        format: "mini_hurdle_measurement_gt_converted".localized,
-                        enteredLengthText,
-                        parsedGreaterTrochanterLength
-                    )
-                )
-                .font(.caption)
-                // Audit MH-8: conversion note is tertiary context, not a highlight.
-                .foregroundStyle(DS.Colors.textTertiary)
-            } else {
-                Text("mini_hurdle_measurement_gt_hint".localized)
-                    .font(.caption)
-                    .foregroundStyle(DS.Colors.textSecondary)
+            HStack {
+                gtMeasurementHint
+                if isEditingGT {
+                    Spacer(minLength: DS.Space.sm)
+                    Button("done".localized) { isEditingGT = false }
+                        .font(.callout.weight(.semibold))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityIdentifier("mini_hurdle_gt_done")
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var gtMeasurementHint: some View {
+        if isGTInputInvalid {
+            Text("mini_hurdle_invalid_gt_hint".localized)
+                .font(.caption)
+                .foregroundStyle(DS.Colors.warning)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if isGTOutOfRange {
+            Text("mini_hurdle_gt_out_of_range_hint".localized)
+                .font(.caption)
+                .foregroundStyle(DS.Colors.warning)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if let parsedGreaterTrochanterLength {
+            Text(
+                String(
+                    format: "mini_hurdle_measurement_gt_converted".localized,
+                    MiniHurdleMeasurementUnit.meters.lengthText(meters: parsedGreaterTrochanterLength)
+                )
+            )
+            .font(.caption)
+            .foregroundStyle(DS.Colors.textTertiary)
+        } else {
+            Text("mini_hurdle_measurement_gt_hint".localized)
+                .font(.caption)
+                .foregroundStyle(DS.Colors.textSecondary)
+        }
     }
 
     private var referencesSection: some View {
@@ -1391,7 +1403,7 @@ struct MiniHurdleSpacingView: View {
         name: String,
         timestamp: Date
     ) -> MiniHurdleAthleteProfile? {
-        guard let parsedGreaterTrochanterLength else { return nil }
+        guard let parsedGreaterTrochanterLength, canSaveCurrentSetupAsAthlete else { return nil }
 
         let persistedStrategyKind: MiniHurdleStrategyKind = strategyKind == .mannRecommended ? .mannRecommended : .clarkRange
         let persistedRatio = persistedStrategyKind == .mannRecommended ? nil : clampedClarkRangeRatio
@@ -1718,8 +1730,12 @@ private struct MiniHurdleAthleteEditorSheet: View {
         validateName(name)
     }
 
-    private var canSave: Bool {
-        validationMessage == nil && parsedGtLength != nil
+    private var hasValidLayout: Bool {
+        guard let parsedGtLength else { return false }
+        let strategy: MiniHurdleStrategy = editorStrategyKind == .mannRecommended
+            ? .mannRecommended : .custom(ratio: clampedCustomRatio)
+        return MiniHurdleSpacingCalculator.calculate(greaterTrochanterLength: parsedGtLength,
+                                                      profile: editorProfile, strategy: strategy) != nil
     }
 
     // P3 修复：编辑器与主页共用同一软警告口径（50–120 cm 之外提示复核）。
@@ -1764,6 +1780,7 @@ private struct MiniHurdleAthleteEditorSheet: View {
     }
 
     var body: some View {
+        let validLayout = hasValidLayout
         NavigationStack {
             // Audit MH-4: module-native cards replace the system Form so the
             // editor shares the dark-card / teal design language of the page.
@@ -1863,8 +1880,9 @@ private struct MiniHurdleAthleteEditorSheet: View {
                                 )
                         )
 
-                        if isGtOutOfRange {
-                            Text("mini_hurdle_gt_out_of_range_hint".localized)
+                        if !editorGtText.isEmpty && (!validLayout || isGtOutOfRange) {
+                            let hint = validLayout ? "mini_hurdle_gt_out_of_range_hint" : "mini_hurdle_athlete_editor_invalid_setup"
+                            Text(hint.localized)
                                 .font(.caption)
                                 .foregroundStyle(DS.Colors.warning)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1961,7 +1979,7 @@ private struct MiniHurdleAthleteEditorSheet: View {
                     leadingIdentifier: "mini_hurdle_athlete_editor_cancel",
                     trailingTitle: mode.saveButtonTitle,
                     trailingIdentifier: "mini_hurdle_athlete_editor_save",
-                    trailingDisabled: !canSave
+                    trailingDisabled: validationMessage != nil || !validLayout
                 ) {
                     dismiss()
                 } trailingAction: {

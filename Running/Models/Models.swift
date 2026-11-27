@@ -148,8 +148,20 @@ struct PaceRunGroup: Codable, Identifiable {
 
     /// Get distance for segment at index
     func distanceForSegment(_ index: Int) -> Double {
-        if let cs = customSegments, index < cs.count { return Double(cs[index].distance) }
-        return Double(segmentDistance)
+        guard index >= 0, index < segmentCount else { return 0 }
+        if let segments = customSegments, !segments.isEmpty {
+            return Double(max(0, segments[index].distance))
+        }
+        let step = max(1, segmentDistance)
+        return Double(min(step, max(0, totalDistance) - index * step))
+    }
+
+    var plannedRunningDistance: Int {
+        if let segments = customSegments, !segments.isEmpty {
+            let metersPerSet = segments.reduce(0) { $0 + max(0, $1.distance) }
+            return metersPerSet * effectiveSetCount
+        }
+        return max(0, totalDistance) * effectiveSetCount
     }
 
     /// Cumulative distance markers at each segment boundary.

@@ -322,7 +322,7 @@
 "mini_hurdle_measurement_unit_m" = "米";
 "mini_hurdle_measurement_gt_title" = "GT 下肢长（大转子高度）";
 "mini_hurdle_measurement_gt_hint" = "请输入 GT 下肢长实测值；若以厘米录入，系统会自动换算为米参与计算。";
-"mini_hurdle_measurement_gt_converted" = "按 %2$.2f m 参与计算。";
+"mini_hurdle_measurement_gt_converted" = "按 %@ 参与计算。";
 "mini_hurdle_strategy_mode_title" = "目标栏距方案";
 "mini_hurdle_strategy_clark_range" = "Clark 区间";
 "mini_hurdle_strategy_clark_range_desc" = "在 Clark 区间内选择本次训练的目标最长栏距。";
@@ -445,6 +445,7 @@
 "mini_hurdle_athlete_manage_button" = "编辑档案";
 "mini_hurdle_athlete_autosync_note" = "直接在本页修改即可自动同步。";
 "mini_hurdle_athlete_setup_incomplete" = "先完成 GT 下肢长和栏距方案设定，再保存为运动员。";
+"mini_hurdle_athlete_last_valid" = "当前输入无法生成摆点。档案中仍是上次保存的设定。";
 "mini_hurdle_athlete_summary_format" = "%@ · GT %@ · %@";
 "mini_hurdle_athlete_clark_summary_format" = "Clark %@";
 "mini_hurdle_athlete_custom_summary_format" = "自定义 %@";

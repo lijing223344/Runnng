@@ -445,7 +445,7 @@ struct IntervalBatchTrainingView: View {
             detailLabel: detail,
             stepLabel: step,
             compactLabel: "\(rep)/\(repetitions)",
-            remainingText: Self.mmss(ceil(state.remainingTime)),
+            remainingText: TrainingSessionClock.remainingText(state.remainingTime),
             endDate: endDate,
             progress: overallProgress,
             accentHex: group.colorHex,
