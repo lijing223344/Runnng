@@ -52,13 +52,22 @@ enum MiniHurdleMeasurementUnit: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var metricFormat: String {
-        switch self {
-        case .centimeters:
-            return "%.0f cm"
-        case .meters:
-            return "%.2f m"
-        }
+    func meters(from input: String) -> Double? {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(text), value.isFinite, value > 0 else { return nil }
+        return self == .centimeters ? value / 100 : value
+    }
+
+    func inputText(meters: Double) -> String {
+        let value = self == .centimeters ? meters * 100 : meters
+        let digits = self == .centimeters ? 0...10 : 2...12
+        return value.formatted(.number.locale(Locale(identifier: "en_US_POSIX"))
+            .grouping(.never).precision(.fractionLength(digits)))
+    }
+
+    func lengthText(meters: Double) -> String {
+        inputText(meters: meters) + (self == .centimeters ? " cm" : " m")
     }
 }
 

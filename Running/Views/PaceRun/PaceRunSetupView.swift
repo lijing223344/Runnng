@@ -1078,6 +1078,7 @@ struct PaceRunGroupEditorView: View {
                         DSPresetTile(title: preset.displayName, isSelected: group.totalDistance == preset.rawValue) {
                             group.totalDistance = preset.rawValue
                         }
+                        .accessibilityIdentifier("pace_total_distance_\(preset.rawValue)")
                     }
                 }
                 Divider()
@@ -1141,6 +1142,7 @@ struct PaceRunGroupEditorView: View {
                             DSPresetTile(title: preset.displayName, isSelected: group.segmentDistance == preset.rawValue) {
                                 group.segmentDistance = preset.rawValue
                             }
+                            .accessibilityIdentifier("pace_segment_distance_\(preset.rawValue)")
                         }
                     }
                     Divider()
@@ -1195,10 +1197,10 @@ struct PaceRunGroupEditorView: View {
 
     // Initialize custom segments from current uniform config
     private func initCustomSegments() {
-        let count = max(1, group.segmentCount)
-        let timePerSeg = pickerTotalTime > 0 ? pickerTotalTime / Double(count) : 30.0
-        group.customSegments = (0..<count).map { _ in
-            CustomSegment(distance: group.segmentDistance, time: timePerSeg)
+        let distances = group.segmentDistanceValues()
+        let timePerSeg = pickerTotalTime > 0 ? pickerTotalTime / Double(distances.count) : 30.0
+        group.customSegments = distances.map { distance in
+            CustomSegment(distance: distance, time: timePerSeg)
         }
     }
 

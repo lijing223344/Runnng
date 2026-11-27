@@ -27,14 +27,15 @@ final class TrainingLiveActivityManager {
 
     private var activity: Activity<TrainingActivityAttributes>?
     private var activityTrainingID: String?
-    private var lastSignature = ""
-    private var lastPushAt = Date.distantPast
+    private var lastState: TrainingActivityAttributes.ContentState?
+    private var pendingUpdate: Task<Void, Never>?
     private var willTerminateObserver: NSObjectProtocol?
     private let log = Logger(subsystem: "SCTN.Running", category: "LiveActivity")
 
     private init() {
         registerLifecycleObservers()
-        Task { await sweepOrphanedActivities() }
+        let leftovers = Activity<TrainingActivityAttributes>.activities
+        Task { await sweepOrphanedActivities(leftovers) }
     }
 
     deinit {
@@ -54,8 +55,9 @@ final class TrainingLiveActivityManager {
             log.notice("Live Activities disabled by system settings")
             return
         }
-        if let activity, activityTrainingID == trainingID {
-            push(state, to: activity, force: true)
+        if let activity, activityTrainingID == trainingID,
+           activity.activityState == .active || activity.activityState == .stale {
+            update(state)
             return
         }
         // A different session is starting: close any stale card first so two
@@ -63,12 +65,11 @@ final class TrainingLiveActivityManager {
         // pass also retires untracked leftovers the in-memory reference no
         // longer knows about — a 90 s grace card from the previous session,
         // or an orphan left by a crashed process.
-        if activity != nil {
-            endAllImmediately()
-        }
-        Task { [trainingID] in
-            for other in Activity<TrainingActivityAttributes>.activities
-            where other.attributes.trainingID != trainingID {
+        let replacedID = activity?.id
+        end()
+        let leftovers = Activity<TrainingActivityAttributes>.activities.filter { $0.id != replacedID }
+        Task {
+            for other in leftovers {
                 await other.end(nil, dismissalPolicy: .immediate)
             }
         }
@@ -79,8 +80,7 @@ final class TrainingLiveActivityManager {
             activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
             activityTrainingID = trainingID
             log.notice("started \(trainingID, privacy: .public)")
-            lastSignature = signature(of: state)
-            lastPushAt = Date()
+            lastState = state
         } catch {
             log.error("request failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -92,14 +92,14 @@ final class TrainingLiveActivityManager {
     /// itself is rendered by `Text(timerInterval:)` inside the widget, which
     /// means a quiet second never touches the island and it cannot wobble.
     func update(_ state: TrainingActivityAttributes.ContentState) {
-        guard let activity else { return }
-        let newSignature = signature(of: state)
-        guard newSignature != lastSignature else { return }
-        let now = Date()
-        guard now.timeIntervalSince(lastPushAt) >= 0.4 else { return }
-        lastSignature = newSignature
-        lastPushAt = now
-        push(state, to: activity, force: false)
+        guard let activity, state.needsUpdate(after: lastState) else { return }
+        lastState = state
+        let previous = pendingUpdate
+        let content = ActivityContent(state: state, staleDate: staleDate(for: state))
+        pendingUpdate = Task {
+            await previous?.value
+            await activity.update(content)
+        }
     }
 
     func end(final state: TrainingActivityAttributes.ContentState? = nil,
@@ -108,11 +108,14 @@ final class TrainingLiveActivityManager {
         let current = activity
         self.activity = nil
         activityTrainingID = nil
-        lastSignature = ""
+        lastState = nil
+        let previous = pendingUpdate
+        pendingUpdate = nil
         let dismissal: ActivityUIDismissalPolicy = seconds > 0
             ? .after(Date().addingTimeInterval(seconds))
             : .immediate
         Task {
+            await previous?.value
             if let state {
                 await current.end(ActivityContent(state: state, staleDate: staleDate(for: state)), dismissalPolicy: dismissal)
             } else {
@@ -126,50 +129,12 @@ final class TrainingLiveActivityManager {
     /// about to be terminated, so the island never keeps showing a session
     /// that is no longer running.
     func endAllImmediately() {
-        guard let activity else { return }
-        let current = activity
-        self.activity = nil
-        activityTrainingID = nil
-        lastSignature = ""
-        Task {
-            await current.end(nil, dismissalPolicy: .immediate)
-        }
+        end()
     }
 
-    // MARK: - Private
-
-    private func push(_ state: TrainingActivityAttributes.ContentState,
-                      to activity: Activity<TrainingActivityAttributes>,
-                      force: Bool) {
-        Task {
-            await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state)))
-        }
-    }
-
-    /// Structural fingerprint. Deliberately excludes `remainingText` and
-    /// `endDate`: both change every tick and would turn a calm countdown into
-    /// a one-update-per-second repaint. Progress is bucketed so the rail
-    /// advances in visible steps instead of on every tick.
-    /// If the app is killed mid-session the card stops ticking; telling the
-    /// system when the current block was due lets it mark the card outdated
-    /// instead of presenting a frozen clock as if it were live.
     private func staleDate(for state: TrainingActivityAttributes.ContentState) -> Date? {
         guard !state.isPaused, !state.isComplete else { return nil }
         return state.endDate
-    }
-
-    private func signature(of state: TrainingActivityAttributes.ContentState) -> String {
-        let progressBucket = Int((state.progress * 10).rounded(.down))
-        return [
-            state.phaseLabel,
-            state.stepLabel,
-            state.detailLabel,
-            state.statusLabel,
-            state.accentHex,
-            String(progressBucket),
-            state.isPaused ? "p" : "r",
-            state.isComplete ? "c" : "a"
-        ].joined(separator: "|")
     }
 
     // MARK: - Lifecycle observers & orphan sweep
@@ -189,8 +154,7 @@ final class TrainingLiveActivityManager {
     /// On launch, close any activity that survived a previous process death
     /// (swipe-to-kill, crash, jetsam). The in-memory `activity` reference is
     /// gone after a relaunch, so we enumerate the system registry directly.
-    private func sweepOrphanedActivities() async {
-        let activities = Activity<TrainingActivityAttributes>.activities
+    private func sweepOrphanedActivities(_ activities: [Activity<TrainingActivityAttributes>]) async {
         guard !activities.isEmpty else { return }
         log.notice("sweeping \(activities.count, privacy: .public) orphaned activity(ies)")
         for activity in activities {
@@ -203,5 +167,23 @@ final class TrainingLiveActivityManager {
                 break
             }
         }
+    }
+}
+
+extension TrainingActivityAttributes.ContentState {
+    /// The system ticks the deadline between changes. A pause or new phase must
+    /// reach the island even if the previous update was only a frame ago.
+    func needsUpdate(after previous: Self?) -> Bool {
+        guard let previous else { return true }
+        if let endDate, let previousEnd = previous.endDate,
+           abs(endDate.timeIntervalSince(previousEnd)) > 0.1 { return true }
+        return (endDate == nil) != (previous.endDate == nil)
+            || isPaused != previous.isPaused || isComplete != previous.isComplete
+            || (endDate == nil && remainingText != previous.remainingText)
+            || kindLabel != previous.kindLabel || planTitle != previous.planTitle
+            || phaseLabel != previous.phaseLabel || detailLabel != previous.detailLabel
+            || stepLabel != previous.stepLabel || compactLabel != previous.compactLabel
+            || statusLabel != previous.statusLabel || accentHex != previous.accentHex
+            || Int(progress * 10) != Int(previous.progress * 10)
     }
 }

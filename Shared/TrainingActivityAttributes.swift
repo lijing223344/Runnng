@@ -23,7 +23,7 @@ nonisolated public struct TrainingActivityAttributes: ActivityAttributes, Sendab
         public var detailLabel: String
         /// Step counter, e.g. "3 / 8".
         public var stepLabel: String
-        /// Narrow variant used by the island's compact trailing slot, e.g. "3/8".
+        /// Narrow variant used by the island's compact leading slot, e.g. "3/8".
         /// Kept short so the island never has to resize between steps.
         public var compactLabel: String
         /// Frozen remaining text for paused/static states.

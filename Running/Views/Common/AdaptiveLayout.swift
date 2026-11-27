@@ -1,12 +1,73 @@
 import SwiftUI
 
-/// Layout rules for the wide canvas a foldable iPhone gives us when unfolded.
-/// Below the breakpoint everything stays single column; above it the session
-/// splits into the live card on the left and plan context on the right, the way
-/// a timing desk sits next to the lanes.
 enum DSLayout {
     static let wideBreakpoint: CGFloat = 700
     static func isWide(_ width: CGFloat) -> Bool { width >= wideBreakpoint }
+}
+
+/// Reserves the controls' actual height when the device rotates or an
+/// authorization hint appears. Both controls and timer use the same safe area.
+struct TrainingSessionScreen<Content: View>: View {
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    let accent: Color
+    let isPaused: Bool
+    let isComplete: Bool
+    let showsActivityHint: Bool
+    let onPause: () -> Void
+    let onRestart: () -> Void
+    let onStop: () -> Void
+    let content: Content
+
+    init(accent: Color, isPaused: Bool, isComplete: Bool, showsActivityHint: Bool,
+         onPause: @escaping () -> Void, onRestart: @escaping () -> Void, onStop: @escaping () -> Void,
+         @ViewBuilder content: () -> Content) {
+        self.accent = accent
+        self.isPaused = isPaused
+        self.isComplete = isComplete
+        self.showsActivityHint = showsActivityHint
+        self.onPause = onPause
+        self.onRestart = onRestart
+        self.onStop = onStop
+        self.content = content()
+    }
+
+    var body: some View {
+        let compact = verticalSizeClass == .compact
+        let height: CGFloat = compact ? 44 : 56
+        let highlighted = isComplete || isPaused
+        VStack(spacing: 0) {
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if showsActivityHint {
+                LiveActivityUnavailableHint()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+            }
+            HStack(spacing: 12) {
+                Button(action: isComplete ? onRestart : onPause) {
+                    Label((isComplete ? "restart_training" : isPaused ? "resume" : "pause").localized,
+                          systemImage: isComplete ? "arrow.clockwise" : isPaused ? "play.fill" : "pause.fill")
+                        .foregroundStyle(highlighted ? .white : DS.Colors.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: height)
+                        .trainingControlSurface(highlighted: highlighted, accent: accent)
+                }
+                .accessibilityIdentifier("training_pause_resume")
+                Button(action: onStop) {
+                    Label("stop".localized, systemImage: "stop.fill")
+                        .foregroundStyle(DS.Colors.error)
+                        .frame(width: 110, height: height)
+                        .trainingStopSurface()
+                }
+            }
+            .labelStyle(.titleAndIcon)
+            .font(.system(size: 16, weight: .semibold))
+            .padding(.horizontal, 16)
+            .padding(.top, compact ? 4 : 12)
+            .padding(.bottom, compact ? 4 : 32)
+        }
+        .background(Color.black.ignoresSafeArea())
+    }
 }
 
 /// Two-pane session shell. Each pane scrolls independently so the timer never
@@ -31,7 +92,6 @@ struct DSTrainingSplit<Leading: View, Trailing: View>: View {
             Rectangle()
                 .fill(DS.Colors.borderLight)
                 .frame(width: 1)
-                .ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 trailing()

@@ -77,9 +77,9 @@ final class RunningUITests: XCTestCase {
 
     private func openPaceTrainingPlans(_ app: XCUIApplication) {
         let manage = app.buttons["pace_manage_button"]
-        XCTAssertTrue(manage.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntil(timeout: 10) { manage.exists && manage.isHittable })
         manage.tap()
-        XCTAssertTrue(app.buttons["pace_add_plan_toolbar_button"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["pace_add_plan_toolbar_button"].waitForExistence(timeout: 10))
     }
 
     private func addDefaultPaceGroup(_ app: XCUIApplication) {
@@ -96,9 +96,9 @@ final class RunningUITests: XCTestCase {
 
     private func openIntervalTrainingPlans(_ app: XCUIApplication) {
         let manage = app.buttons["interval_manage_button"]
-        XCTAssertTrue(manage.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntil(timeout: 10) { manage.exists && manage.isHittable })
         manage.tap()
-        XCTAssertTrue(app.buttons["interval_add_plan_toolbar_button"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["interval_add_plan_toolbar_button"].waitForExistence(timeout: 10))
     }
 
     private func addDefaultIntervalGroup(_ app: XCUIApplication) {
@@ -608,6 +608,198 @@ final class RunningUITests: XCTestCase {
         deleteConfirmButton.tap()
 
         XCTAssertTrue(waitForLabel(of: currentAthleteName, equals: "AthleteB"))
+    }
+
+    func testTemporaryHurdleInputAndSavedAthleteStayIndependent() throws {
+        let app = launchApp(additionalArguments: ["-ui_testing_open_mini_hurdle"])
+        let scroll = app.scrollViews["mini_hurdle_scroll"]
+        let gt = app.textFields["mini_hurdle_gt_input"]
+        XCTAssertTrue(gt.waitForExistence(timeout: 5))
+        let clear = app.buttons["mini_hurdle_clear_gt"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        gt.tap()
+        clear.tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { !clear.isEnabled })
+        gt.typeText("86.75")
+        XCTAssertEqual(gt.value as? String, "86.75")
+        XCTAssertTrue(app.staticTexts["Calculated as 0.8675 m."].exists)
+        let done = app.buttons["mini_hurdle_gt_done"]
+        XCTAssertTrue(done.isHittable)
+        done.tap()
+        XCTAssertFalse(done.exists)
+        app.buttons["m"].tap()
+        XCTAssertEqual(gt.value as? String, "0.8675")
+
+        let save = app.buttons["mini_hurdle_athlete_save_button"]
+        makeElementHittable(save, in: scroll)
+        save.tap()
+        let name = app.textFields["mini_hurdle_athlete_name_textfield"]
+        replaceText(in: name, with: "Track A")
+        app.buttons["mini_hurdle_athlete_editor_save"].tap()
+
+        scrollToTop(scroll)
+        let increase = app.buttons["mini_hurdle_gt_step_up"]
+        XCTAssertTrue(increase.waitForExistence(timeout: 3))
+        increase.tap()
+        XCTAssertEqual(gt.value as? String, "0.8775")
+        app.buttons["Temporary"].tap()
+        XCTAssertEqual(gt.value as? String, "0.8675")
+
+        app.buttons["Saved athlete"].tap()
+        app.buttons["mini_hurdle_list_edit_Track A"].tap()
+        let editor = app.scrollViews.containing(.textField, identifier: "mini_hurdle_editor_gt_input").firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.buttons["cm"].tap()
+        XCTAssertEqual(editor.textFields["mini_hurdle_editor_gt_input"].value as? String, "87.75")
+        app.buttons["mini_hurdle_athlete_editor_cancel"].tap()
+        XCTAssertEqual(gt.value as? String, "0.8675")
+        app.buttons["Saved athlete"].tap()
+        app.buttons["mini_hurdle_list_select_Track A"].tap()
+        XCTAssertEqual(gt.value as? String, "0.8775")
+
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-ui_testing_reset" }
+        app.launch()
+        XCTAssertTrue(gt.waitForExistence(timeout: 5))
+        XCTAssertEqual(gt.value as? String, "0.8775")
+        XCTAssertTrue(app.buttons["mini_hurdle_athlete_manage_button"].exists)
+    }
+
+    func testIncompleteHurdleMeasurementPreservesTheSavedAthlete() throws {
+        let app = launchApp(additionalArguments: ["-ui_testing_open_mini_hurdle", "-ui_testing_seed_mini_hurdle", "athleteProfiles"])
+        let gt = app.textFields["mini_hurdle_gt_input"]
+        XCTAssertTrue(gt.waitForExistence(timeout: 5))
+        XCTAssertEqual(gt.value as? String, "92")
+        let clear = app.buttons["mini_hurdle_clear_gt"]
+        gt.tap()
+        clear.tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { !clear.isEnabled })
+        gt.typeText("1")
+        XCTAssertEqual(gt.value as? String, "1")
+        let saveEnabled = app.buttons["mini_hurdle_athlete_save_button"].isEnabled
+
+        app.terminate()
+        app.launchArguments.removeAll { ["-ui_testing_reset", "-ui_testing_seed_mini_hurdle", "athleteProfiles"].contains($0) }
+        app.launch()
+        XCTAssertTrue(gt.waitForExistence(timeout: 5))
+        XCTAssertEqual(gt.value as? String, "92")
+        XCTAssertFalse(saveEnabled)
+    }
+
+    func testLandscapePaceControlsAlignWithTimer() throws {
+        try verifyLandscapeControls(forPace: true, orientation: .landscapeLeft)
+    }
+
+    func testLandscapeIntervalControlsAlignWithTimer() throws {
+        try verifyLandscapeControls(forPace: false, orientation: .landscapeRight)
+    }
+
+    func testConvertingToCustomPaceSegmentsPreservesTheTotalDistance() throws {
+        let app = launchApp()
+        openPaceTrainingPlans(app)
+        app.buttons["pace_add_plan_toolbar_button"].tap()
+        let scroll = app.scrollViews.firstMatch
+        let total = app.buttons["pace_total_distance_1500"].firstMatch
+        makeElementHittable(total, in: scroll)
+        total.tap()
+        let split = app.buttons["pace_segment_distance_200"].firstMatch
+        makeElementHittable(split, in: scroll)
+        split.tap()
+        let custom = app.buttons["Custom Segments"].firstMatch
+        makeElementHittable(custom, in: scroll)
+        custom.tap()
+        app.buttons["pace_editor_save_bar_button"].tap()
+
+        XCTAssertTrue(app.staticTexts["1500m"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["1600m"].exists)
+    }
+
+    private func verifyLandscapeControls(forPace: Bool, orientation: UIDeviceOrientation) throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .phone)
+        XCUIDevice.shared.press(.home)
+        XCUIDevice.shared.orientation = .portrait
+        let app = launchApp()
+        defer {
+            XCUIDevice.shared.orientation = .portrait
+            _ = waitUntil(timeout: 8) { app.frame.height > app.frame.width }
+            XCUIDevice.shared.press(.home)
+        }
+        let prefix = forPace ? "pace" : "interval"
+        let addGroup = forPace ? addDefaultPaceGroup : addDefaultIntervalGroup
+        if forPace { openPaceTrainingPlans(app) } else { openIntervalTrainingPlans(app) }
+        addGroup(app)
+        let start = app.buttons["\(prefix)_start_training_button"]
+        let groupPauses = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Pause", "training_pause_resume"))
+        start.tap()
+        XCTAssertTrue(groupPauses.firstMatch.waitForExistence(timeout: 12))
+        stopActiveTraining(app)
+        addGroup(app)
+        XCTAssertTrue(waitUntil(timeout: 5) { start.isEnabled && start.isHittable })
+        start.tap()
+        XCUIDevice.shared.orientation = orientation
+        let globalPause = app.buttons["training_pause_resume"]
+        let stop = app.buttons["Stop"]
+
+        func checkAlignment(name: String) {
+            XCTAssertTrue(groupPauses.firstMatch.waitForExistence(timeout: 10))
+            let viewport = app.scrollViews.firstMatch.frame
+            XCTAssertLessThanOrEqual(viewport.maxY, globalPause.frame.minY + 1)
+            XCTAssertEqual(stop.frame.maxX - groupPauses.firstMatch.frame.maxX, 20, accuracy: 2)
+            XCTAssertEqual(globalPause.frame.midY, stop.frame.midY, accuracy: 1)
+            XCTAssertGreaterThanOrEqual(globalPause.frame.height, 44)
+            captureReferenceScreenshot(name: name)
+            globalPause.tap()
+            XCTAssertEqual(globalPause.label, "Resume")
+            XCTAssertTrue(app.staticTexts["Paused"].firstMatch.waitForExistence(timeout: 3))
+            globalPause.tap()
+            XCTAssertEqual(globalPause.label, "Pause")
+            stopActiveTraining(app)
+            XCTAssertTrue(waitUntil(timeout: 8) { start.isHittable && !stop.exists })
+        }
+
+        checkAlignment(name: "\(prefix)-landscape-single")
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(waitUntil(timeout: 5) { app.frame.height > app.frame.width })
+        let history = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@", "\(prefix)_setup_tab_picker", "History")).firstMatch
+        history.tap()
+        let plans = app.staticTexts.matching(identifier: "New Group")
+        XCTAssertTrue(waitUntil(timeout: 4) { plans.count == 2 })
+        // Starting the second plan selects it. Add the older plan to launch both.
+        plans.element(boundBy: 1).tap()
+        XCTAssertTrue(start.label.contains("(2)"))
+        start.tap()
+        XCUIDevice.shared.orientation = orientation
+        XCTAssertTrue(app.staticTexts["PLAN 1"].waitForExistence(timeout: 10))
+        checkAlignment(name: "\(prefix)-landscape-multiple")
+    }
+
+    func testPausingPreparationKeepsTheCountdownAcrossHome() throws {
+        let app = launchApp()
+        openPaceTrainingPlans(app)
+        addDefaultPaceGroup(app)
+        app.buttons["10s"].tap()
+        app.buttons["pace_start_training_button"].tap()
+        let pause = app.buttons["training_pause_resume"]
+        XCTAssertTrue(pause.waitForExistence(timeout: 3))
+        pause.tap()
+
+        let seconds = app.staticTexts["training_preparation_seconds"]
+        XCTAssertTrue(seconds.exists)
+        let frozen = seconds.label
+        XCUIDevice.shared.press(.home)
+        RunLoop.current.run(until: Date().addingTimeInterval(3))
+        app.activate()
+        XCTAssertTrue(pause.waitForExistence(timeout: 3))
+        XCTAssertEqual(pause.label, "Resume")
+        XCTAssertEqual(seconds.label, frozen)
+
+        pause.tap()
+        XCTAssertTrue(waitUntil(timeout: 12) {
+            !seconds.exists
+        })
+        pause.tap()
+        XCTAssertTrue(app.staticTexts["Paused"].firstMatch.waitForExistence(timeout: 3))
+        stopActiveTraining(app)
     }
 
     func testPaceCardTapDoesNotTriggerDuplicate() throws {

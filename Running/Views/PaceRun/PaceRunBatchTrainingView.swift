@@ -15,15 +15,13 @@ struct PaceRunBatchTrainingView: View {
 
     @State private var planStates: [PaceRunBatchPlanState] = []
     @State private var isGlobalPaused = false
-    @State private var countdownSeconds = 3
-    @State private var isCountdown = true
+    @State private var clock = TrainingSessionClock()
+    private var countdownSeconds: Int { clock.countdownSeconds }
+    private var isCountdown: Bool { clock.countdownRemaining > 0 }
     @State private var timer: Timer?
-    @State private var lastTickDate: Date?
     @State private var showConfirmStop = false
     @State private var sessionStartedAt: Date?
 
-    private let maxTickElapsed: TimeInterval = 0.25
-    private let maxStateTransitionsPerTick = 512
 
     private var allCompleted: Bool {
         !planStates.isEmpty && planStates.allSatisfy({ !$0.groupStates.isEmpty && $0.groupStates.allSatisfy(\.isCompleted) }) && !isCountdown
@@ -36,23 +34,16 @@ struct PaceRunBatchTrainingView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
+        TrainingSessionScreen(
+            accent: DS.Colors.paceRun, isPaused: isGlobalPaused, isComplete: allCompleted,
+            showsActivityHint: showsLiveActivityHint,
+            onPause: toggleGlobalPause, onRestart: restartTraining,
+            onStop: { showConfirmStop = true }
+        ) {
             if isCountdown {
                 countdownOverlay
             } else {
                 trainingContent
-            }
-
-            VStack {
-                Spacer()
-                if showsLiveActivityHint {
-                    LiveActivityUnavailableHint()
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
-                }
-                bottomControls
             }
         }
         .onAppear {
@@ -66,20 +57,11 @@ struct PaceRunBatchTrainingView: View {
             TrainingLiveActivityManager.shared.end()
         }
         .onChange(of: scenePhase) { _, phase in
-            switch phase {
-            case .active:
-                resumeTimingIfNeeded()
-                reviveLiveActivityIfNeeded()
-            case .background:
-                // The session keeps running in the background (audio
-                // keep-alive), so the card stays up and ticks by itself.
-                suspendTiming()
-            case .inactive:
-                // Transient overlay (notification/control centre, app
-                // switcher): the card must survive these untouched.
-                break
-            @unknown default:
-                break
+            if phase == .active, sessionStartedAt != nil, !allCompleted {
+                tick()
+                if !allCompleted, let state = liveActivityState() {
+                    TrainingLiveActivityManager.shared.begin(trainingID: session.id, state: state)
+                }
             }
         }
         .alert("confirm_stop".localized, isPresented: $showConfirmStop) {
@@ -101,7 +83,7 @@ struct PaceRunBatchTrainingView: View {
                     .minimumScaleFactor(0.8)
                     .padding(.horizontal, 32)
             }
-            Text("countdown_start".localized)
+            Text((isGlobalPaused ? "paused" : "countdown_start").localized)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .tracking(2)
@@ -110,6 +92,7 @@ struct PaceRunBatchTrainingView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.55))
             Text("\(countdownSeconds)")
+                .accessibilityIdentifier("training_preparation_seconds")
                 .font(DS.Typo.countdownHero)
                 .foregroundStyle(DS.Colors.paceRun)
                 .monospacedDigit()
@@ -133,6 +116,7 @@ struct PaceRunBatchTrainingView: View {
                                 PaceRunGroupTrainingCard(
                                     group: group,
                                     state: planStates[planIndex].groupStates[groupIndex],
+                                    isSessionPaused: isGlobalPaused,
                                     onPauseToggle: { togglePauseGroup(planIndex: planIndex, groupIndex: groupIndex) }
                                 )
                             }
@@ -142,7 +126,7 @@ struct PaceRunBatchTrainingView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
-            .padding(.bottom, 120)
+            .padding(.bottom, 12)
         }
     }
 
@@ -170,147 +154,53 @@ struct PaceRunBatchTrainingView: View {
         Color(hex: launchPlan.training.groups.first?.colorHex ?? "") ?? DS.Colors.paceRun
     }
 
-    private var bottomControls: some View {
-        let primaryHighlighted = allCompleted || isGlobalPaused
-        return HStack(spacing: 12) {
-            Button(action: allCompleted ? restartTraining : toggleGlobalPause) {
-                HStack(spacing: 8) {
-                    Image(systemName: allCompleted ? "arrow.clockwise" : (isGlobalPaused ? "play.fill" : "pause.fill"))
-                        .font(.system(size: 16, weight: .semibold))
-                    Text(allCompleted ? "restart_training".localized : (isGlobalPaused ? "resume".localized : "pause".localized))
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundStyle(primaryHighlighted ? Color.white : DS.Colors.textPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .trainingControlSurface(highlighted: primaryHighlighted, accent: DS.Colors.paceRun)
-            }
-
-            Button(action: { showConfirmStop = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("stop".localized)
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundStyle(DS.Colors.error)
-                .frame(width: 110)
-                .frame(height: 56)
-                .trainingStopSurface()
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 32)
-        .padding(.top, 12)
-        .background(
-            LinearGradient(
-                colors: [Color.black.opacity(0), Color.black],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.4)
-            )
-            .ignoresSafeArea()
-        )
-    }
-
     private func initializeStates() {
         timer?.invalidate()
-        isCountdown = true
         isGlobalPaused = false
         showConfirmStop = false
         planStates = session.plans.map { launchPlan in
             let groupStates = launchPlan.training.groups.map { group in
                 var state = PaceRunGroupState()
+                state.phase = .running
                 state.remainingTime = group.timeForSegment(0)
                 return state
             }
             return PaceRunBatchPlanState(groupStates: groupStates)
         }
-        countdownSeconds = max(1, session.plans.first?.training.countdownSeconds ?? 3)
         sessionStartedAt = nil
-        lastTickDate = nil
     }
 
     private func startCountdown() {
-        isCountdown = true
-        countdownSeconds = max(1, session.plans.first?.training.countdownSeconds ?? 3)
-        sessionStartedAt = Date()
-        soundManager.playCountdown(countdownSeconds)
-        let countdownTimer = Timer(timeInterval: 1, repeats: true) { _ in
-            if self.countdownSeconds > 1 {
-                self.countdownSeconds -= 1
-                self.soundManager.playCountdown(self.countdownSeconds)
-            } else {
-                self.timer?.invalidate()
-                self.isCountdown = false
-                self.soundManager.playConfiguredRunStartSound()
-                self.startAllPlans()
-            }
-        }
-        RunLoop.main.add(countdownTimer, forMode: .common)
-        timer = countdownTimer
-    }
-
-    private func startAllPlans() {
-        for planIndex in session.plans.indices {
-            for groupIndex in session.plans[planIndex].training.groups.indices {
-                planStates[planIndex].groupStates[groupIndex].phase = .running
-                planStates[planIndex].groupStates[groupIndex].currentSegment = 1
-                planStates[planIndex].groupStates[groupIndex].currentSet = 1
-                planStates[planIndex].groupStates[groupIndex].remainingTime = session.plans[planIndex].training.groups[groupIndex].timeForSegment(0)
-                planStates[planIndex].groupStates[groupIndex].isCompleted = false
-                planStates[planIndex].groupStates[groupIndex].restKind = nil
-            }
-        }
+        let now = Date.now
+        clock = TrainingSessionClock(countdown: max(1, session.plans.first?.training.countdownSeconds ?? 3), at: now)
+        sessionStartedAt = now
         if let state = liveActivityState() {
             TrainingLiveActivityManager.shared.begin(trainingID: session.id, state: state)
         }
-        startTimer()
-    }
-
-    private func startTimer() {
-        lastTickDate = Date()
-        let mainTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
-            let now = Date()
-            let rawElapsed = max(0, now.timeIntervalSince(lastTickDate ?? now))
-            lastTickDate = now
-            let elapsed = min(rawElapsed, self.maxTickElapsed)
-            self.updateAllPlans(elapsed: elapsed)
-        }
+        soundManager.playCountdown(countdownSeconds)
+        let mainTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in tick() }
         RunLoop.main.add(mainTimer, forMode: .common)
         timer = mainTimer
     }
 
-    private func suspendTiming() {
-        lastTickDate = nil
-    }
-
-    private func resumeTimingIfNeeded() {
-        guard !isCountdown, !isGlobalPaused, !allCompleted else {
-            lastTickDate = Date()
-            return
+    private func tick() {
+        switch clock.advance(to: .now, paused: isGlobalPaused) {
+        case .idle:
+            break
+        case .countdown(let seconds):
+            soundManager.playCountdown(seconds)
+        case .start(let elapsed):
+            if elapsed < 1 { soundManager.playConfiguredRunStartSound() }
+            updateAllPlans(elapsed: elapsed)
+        case .training(let elapsed):
+            updateAllPlans(elapsed: elapsed)
         }
-        let now = Date()
-        if let last = lastTickDate {
-            let gap = max(0, now.timeIntervalSince(last))
-            if gap > 0 {
-                updateAllPlans(elapsed: gap)
-            }
-        }
-        lastTickDate = now
-    }
-
-    /// Back in the foreground: the card should still be alive — it persists
-    /// while the session runs in the background — but if the system discarded
-    /// it under pressure, rebuild it instead of leaving the session cardless.
-    private func reviveLiveActivityIfNeeded() {
-        guard sessionStartedAt != nil, !isCountdown, !allCompleted,
-              let state = liveActivityState() else { return }
-        TrainingLiveActivityManager.shared.begin(trainingID: session.id, state: state)
     }
 
     private func updateAllPlans(elapsed: TimeInterval) {
         guard !isGlobalPaused else { return }
-        guard elapsed > 0 else { return }
+        // A delayed callback can cross several phases. Skip their expired audio cues.
+        let cues = elapsed < 1 ? soundManager : nil
         let epsilon = 0.000_001
 
         for planIndex in session.plans.indices {
@@ -319,18 +209,8 @@ struct PaceRunBatchTrainingView: View {
                 guard !planStates[planIndex].groupStates[groupIndex].isCompleted && !planStates[planIndex].groupStates[groupIndex].isPaused else { continue }
                 let group = training.groups[groupIndex]
                 var remainingElapsed = elapsed
-                var transitions = 0
 
                 while remainingElapsed > epsilon && !planStates[planIndex].groupStates[groupIndex].isCompleted {
-                    transitions += 1
-                    if transitions > maxStateTransitionsPerTick {
-                        planStates[planIndex].groupStates[groupIndex].isCompleted = true
-                        planStates[planIndex].groupStates[groupIndex].phase = .completed
-                        planStates[planIndex].groupStates[groupIndex].remainingTime = 0
-                        planStates[planIndex].groupStates[groupIndex].restKind = nil
-                        soundManager.playSound(group.endSound)
-                        break
-                    }
 
                     let currentRemaining = max(0, planStates[planIndex].groupStates[groupIndex].remainingTime)
                     if currentRemaining > remainingElapsed + epsilon {
@@ -338,7 +218,7 @@ struct PaceRunBatchTrainingView: View {
                         let next = currentRemaining - remainingElapsed
                         planStates[planIndex].groupStates[groupIndex].remainingTime = next
                         if planStates[planIndex].groupStates[groupIndex].phase == .resting {
-                            playRestCountdownCues(from: previous, to: next, lead: max(1, group.countdownSeconds))
+                            cues?.playRestCountdownCues(from: previous, to: next, lead: max(1, group.countdownSeconds))
                         }
                         remainingElapsed = 0
                     } else {
@@ -346,7 +226,7 @@ struct PaceRunBatchTrainingView: View {
                         remainingElapsed -= currentRemaining
                         planStates[planIndex].groupStates[groupIndex].remainingTime = 0
                         if planStates[planIndex].groupStates[groupIndex].phase == .resting {
-                            playRestCountdownCues(from: previous, to: 0, lead: max(1, group.countdownSeconds))
+                            cues?.playRestCountdownCues(from: previous, to: 0, lead: max(1, group.countdownSeconds))
                         }
 
                         if planStates[planIndex].groupStates[groupIndex].phase == .running {
@@ -354,12 +234,12 @@ struct PaceRunBatchTrainingView: View {
                                 let finishedIndex = max(0, planStates[planIndex].groupStates[groupIndex].currentSegment - 1)
                                 let restAfter = max(0, group.restAfterSegment(finishedIndex))
                                 if restAfter > epsilon {
-                                    soundManager.playSegmentShortWhistle()
+                                    cues?.playSegmentShortWhistle()
                                     planStates[planIndex].groupStates[groupIndex].phase = .resting
                                     planStates[planIndex].groupStates[groupIndex].remainingTime = restAfter
                                     planStates[planIndex].groupStates[groupIndex].restKind = .segment
                                 } else {
-                                    soundManager.playSegmentShortWhistle()
+                                    cues?.playSegmentShortWhistle()
                                     planStates[planIndex].groupStates[groupIndex].currentSegment += 1
                                     let nextSegIndex = max(0, planStates[planIndex].groupStates[groupIndex].currentSegment - 1)
                                     planStates[planIndex].groupStates[groupIndex].remainingTime = max(0, group.timeForSegment(nextSegIndex))
@@ -370,7 +250,7 @@ struct PaceRunBatchTrainingView: View {
                                 if planStates[planIndex].groupStates[groupIndex].currentSet < group.effectiveSetCount {
                                     let setRest = group.effectiveSetRest
                                     if setRest > epsilon {
-                                        soundManager.playSegmentShortWhistle()
+                                        cues?.playSegmentShortWhistle()
                                         planStates[planIndex].groupStates[groupIndex].phase = .resting
                                         planStates[planIndex].groupStates[groupIndex].remainingTime = setRest
                                         planStates[planIndex].groupStates[groupIndex].restKind = .set
@@ -380,13 +260,13 @@ struct PaceRunBatchTrainingView: View {
                                         planStates[planIndex].groupStates[groupIndex].phase = .running
                                         planStates[planIndex].groupStates[groupIndex].remainingTime = max(0, group.timeForSegment(0))
                                         planStates[planIndex].groupStates[groupIndex].restKind = nil
-                                        soundManager.playStandardWhistle()
+                                        cues?.playStandardWhistle()
                                     }
                                 } else {
                                     planStates[planIndex].groupStates[groupIndex].isCompleted = true
                                     planStates[planIndex].groupStates[groupIndex].phase = .completed
                                     planStates[planIndex].groupStates[groupIndex].restKind = nil
-                                    soundManager.playSound(group.endSound)
+                                    cues?.playSound(group.endSound)
                                 }
                             }
                         } else if planStates[planIndex].groupStates[groupIndex].phase == .resting {
@@ -397,12 +277,12 @@ struct PaceRunBatchTrainingView: View {
                                     planStates[planIndex].groupStates[groupIndex].remainingTime = max(0, group.timeForSegment(0))
                                     planStates[planIndex].groupStates[groupIndex].phase = .running
                                     planStates[planIndex].groupStates[groupIndex].restKind = nil
-                                    soundManager.playStandardWhistle()
+                                    cues?.playStandardWhistle()
                                 } else {
                                     planStates[planIndex].groupStates[groupIndex].isCompleted = true
                                     planStates[planIndex].groupStates[groupIndex].phase = .completed
                                     planStates[planIndex].groupStates[groupIndex].restKind = nil
-                                    soundManager.playSound(group.endSound)
+                                    cues?.playSound(group.endSound)
                                 }
                             } else if planStates[planIndex].groupStates[groupIndex].currentSegment < group.segmentCount {
                                 planStates[planIndex].groupStates[groupIndex].currentSegment += 1
@@ -410,12 +290,12 @@ struct PaceRunBatchTrainingView: View {
                                 planStates[planIndex].groupStates[groupIndex].remainingTime = max(0, group.timeForSegment(nextSegIndex))
                                 planStates[planIndex].groupStates[groupIndex].phase = .running
                                 planStates[planIndex].groupStates[groupIndex].restKind = nil
-                                soundManager.playSegmentShortWhistle()
+                                cues?.playSegmentShortWhistle()
                             } else {
                                 planStates[planIndex].groupStates[groupIndex].isCompleted = true
                                 planStates[planIndex].groupStates[groupIndex].phase = .completed
                                 planStates[planIndex].groupStates[groupIndex].restKind = nil
-                                soundManager.playSound(group.endSound)
+                                cues?.playSound(group.endSound)
                             }
                         } else {
                             remainingElapsed = 0
@@ -438,16 +318,16 @@ struct PaceRunBatchTrainingView: View {
     }
 
     private func togglePauseGroup(planIndex: Int, groupIndex: Int) {
+        tick()
         planStates[planIndex].groupStates[groupIndex].isPaused.toggle()
-        lastTickDate = Date()
         if let state = liveActivityState() {
             TrainingLiveActivityManager.shared.update(state)
         }
     }
 
     private func toggleGlobalPause() {
+        tick()
         isGlobalPaused.toggle()
-        lastTickDate = Date()
         if let state = liveActivityState() {
             TrainingLiveActivityManager.shared.update(state)
         }
@@ -470,19 +350,7 @@ struct PaceRunBatchTrainingView: View {
         TrainingLiveActivityManager.shared.end()
         isGlobalPaused = false
         initializeStates()
-        isCountdown = true
         startCountdown()
-    }
-
-    private func playRestCountdownCues(from previous: Double, to current: Double, lead: Int) {
-        let upper = Int(floor(previous))
-        let lower = Int(floor(current))
-        guard lower < upper else { return }
-        for sec in stride(from: upper, to: lower, by: -1) {
-            if sec <= max(1, lead) && sec >= 1 {
-                soundManager.playCountdown(sec)
-            }
-        }
     }
 
     private func saveTrainingRecords(completed: Bool) {
@@ -508,12 +376,14 @@ struct PaceRunBatchTrainingView: View {
     }
 
     private func activeSnapshotTarget() -> (planIndex: Int, groupIndex: Int)? {
-        for planIndex in session.plans.indices where planIndex < planStates.count {
-            let states = planStates[planIndex].groupStates
-            if let groupIndex = states.firstIndex(where: { !$0.isCompleted }) {
-                return (planIndex, groupIndex)
+        var paused: (Int, Int)?
+        for (planIndex, plan) in planStates.enumerated() {
+            for (groupIndex, group) in plan.groupStates.enumerated() where !group.isCompleted {
+                if !group.isPaused { return (planIndex, groupIndex) }
+                if paused == nil { paused = (planIndex, groupIndex) }
             }
         }
+        if let paused { return paused }
         guard let lastPlan = planStates.indices.last,
               let lastGroup = planStates[lastPlan].groupStates.indices.last else { return nil }
         return (lastPlan, lastGroup)
@@ -525,6 +395,10 @@ struct PaceRunBatchTrainingView: View {
               groupIndex < planStates[planIndex].groupStates.count else { return nil }
         let state = planStates[planIndex].groupStates[groupIndex]
         let group = session.plans[planIndex].training.groups[groupIndex]
+        if isCountdown, !isComplete {
+            return clock.preparationActivity(kind: "pace_run".localized, title: batchSessionTitle,
+                                             accentHex: group.colorHex, paused: isGlobalPaused)
+        }
         let segmentCount = max(1, group.segmentCount)
         let segment = min(max(state.currentSegment, 1), segmentCount)
         let distance = Int(group.distanceForSegment(segment - 1).rounded())
@@ -544,7 +418,7 @@ struct PaceRunBatchTrainingView: View {
 
         let detail: String
         if complete {
-            detail = String(format: "live_total_format".localized, group.totalDistance)
+            detail = String(format: "live_total_format".localized, group.plannedRunningDistance)
         } else if state.phase == .resting {
             let plannedRest = state.restKind == .set
                 ? group.effectiveSetRest
@@ -564,7 +438,7 @@ struct PaceRunBatchTrainingView: View {
         else if state.phase == .resting { status = "resting".localized }
         else { status = "running".localized }
 
-        let endDate: Date? = (paused || complete) ? nil : Date().addingTimeInterval(max(0, state.remainingTime))
+        let endDate: Date? = (paused || complete) ? nil : clock.sampleDate.addingTimeInterval(max(0, state.remainingTime))
 
         return .init(
             kindLabel: "pace_run".localized,
@@ -573,9 +447,9 @@ struct PaceRunBatchTrainingView: View {
             detailLabel: detail,
             stepLabel: step,
             compactLabel: "\(segment)/\(segmentCount)",
-            remainingText: Self.mmss(state.remainingTime),
+            remainingText: TrainingSessionClock.remainingText(state.remainingTime),
             endDate: endDate,
-            progress: overallProgress(activePlan: planIndex, activeGroup: groupIndex, state: state),
+            progress: overallProgress,
             accentHex: group.colorHex,
             isPaused: paused,
             isComplete: complete,
@@ -589,30 +463,16 @@ struct PaceRunBatchTrainingView: View {
         return titles.joined(separator: " · ")
     }
 
-    private func overallProgress(activePlan: Int, activeGroup: Int, state: PaceRunGroupState) -> Double {
-        var total = 0.0
+    private var overallProgress: Double {
+        var total = 0
         var done = 0.0
-        for (planIndex, launchPlan) in session.plans.enumerated() {
-            guard planIndex < planStates.count else { continue }
-            for (groupIndex, group) in launchPlan.training.groups.enumerated() {
-                let unit = max(1, group.segmentCount) * group.effectiveSetCount
-                total += Double(unit)
-                guard groupIndex < planStates[planIndex].groupStates.count else { continue }
-                let groupState = planStates[planIndex].groupStates[groupIndex]
-                if groupState.isCompleted {
-                    done += Double(unit)
-                } else if planIndex == activePlan && groupIndex == activeGroup {
-                    let segmentCount = max(1, group.segmentCount)
-                    let segment = min(max(state.currentSegment, 1), segmentCount)
-                    done += Double((min(max(state.currentSet, 1), group.effectiveSetCount) - 1) * segmentCount + (segment - 1))
-                    if state.phase == .running {
-                        let planned = max(0.001, group.timeForSegment(segment - 1))
-                        done += max(0, min(1, 1 - state.remainingTime / planned))
-                    }
-                }
+        for (plan, state) in zip(session.plans, planStates) {
+            for (group, groupState) in zip(plan.training.groups, state.groupStates) {
+                total += group.segmentCount * group.effectiveSetCount
+                done += groupState.completedSteps(in: group)
             }
         }
-        return min(1, max(0, done / max(1, total)))
+        return done / Double(max(1, total))
     }
 
     private func completedGroupCount(for planIndex: Int) -> Int {
