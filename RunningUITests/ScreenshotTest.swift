@@ -70,8 +70,15 @@ final class ScreenshotTest: XCTestCase {
         save(XCUIScreen.main, name: "02_pace_setup")
 
         // 3. Interval Setup with a group
-        app.navigationBars.buttons.firstMatch.tap()
-        sleep(1)
+        // Dismiss the pace editor sheet first (if still open), then return to Home.
+        if app.buttons["pace_editor_cancel_button"].waitForExistence(timeout: 1) {
+            app.buttons["pace_editor_cancel_button"].tap()
+            sleep(1)
+        }
+        if app.navigationBars.buttons.firstMatch.waitForExistence(timeout: 2) {
+            app.navigationBars.buttons.firstMatch.tap()
+            sleep(1)
+        }
 
         let intervalBtn = app.buttons["interval_manage_button"]
         if intervalBtn.waitForExistence(timeout: 3) {
@@ -95,8 +102,14 @@ final class ScreenshotTest: XCTestCase {
         }
 
         // 4. Back home → History tab
-        app.navigationBars.buttons.firstMatch.tap()
-        sleep(1)
+        if app.buttons["interval_editor_cancel_button"].waitForExistence(timeout: 1) {
+            app.buttons["interval_editor_cancel_button"].tap()
+            sleep(1)
+        }
+        if app.navigationBars.buttons.firstMatch.waitForExistence(timeout: 2) {
+            app.navigationBars.buttons.firstMatch.tap()
+            sleep(1)
+        }
         let historyTab = app.buttons["home_tab_history"]
         XCTAssertTrue(historyTab.waitForExistence(timeout: 5))
         historyTab.tap()
